@@ -108,9 +108,10 @@ function Step({ number, label, active, done }) {
   );
 }
 
-function ReplyCard({ tone, reply, delay }) {
+function ReplyCard({ tone, reply, delay, onRegenerate }) {
   const [copied, setCopied] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), delay);
@@ -121,6 +122,12 @@ function ReplyCard({ tone, reply, delay }) {
     navigator.clipboard.writeText(reply);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleRegenerate() {
+    setRegenerating(true);
+    await onRegenerate(tone.id);
+    setRegenerating(false);
   }
 
   return (
@@ -145,24 +152,47 @@ function ReplyCard({ tone, reply, delay }) {
             </div>
           </div>
         </div>
-        <button
-          onClick={copyText}
-          style={{
-            background: copied ? tone.color : "transparent",
-            border: `1.5px solid ${copied ? tone.color : tone.border}`,
-            borderRadius: 8,
-            color: copied ? "#fff" : tone.color,
-            cursor: "pointer",
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: 12,
-            fontWeight: 600,
-            padding: "6px 14px",
-            transition: "all 0.2s",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {copied ? "✓ Copied!" : "Copy"}
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            title="Regenerate this reply"
+            style={{
+              background: "transparent",
+              border: `1.5px solid ${tone.border}`,
+              borderRadius: 8,
+              color: tone.color,
+              cursor: regenerating ? "not-allowed" : "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 12,
+              fontWeight: 600,
+              padding: "6px 12px",
+              transition: "all 0.2s",
+              whiteSpace: "nowrap",
+              opacity: regenerating ? 0.5 : 1,
+            }}
+          >
+            {regenerating ? "↻ ..." : "↻ New"}
+          </button>
+          <button
+            onClick={copyText}
+            style={{
+              background: copied ? tone.color : "transparent",
+              border: `1.5px solid ${copied ? tone.color : tone.border}`,
+              borderRadius: 8,
+              color: copied ? "#fff" : tone.color,
+              cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 12,
+              fontWeight: 600,
+              padding: "6px 14px",
+              transition: "all 0.2s",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {copied ? "✓ Copied!" : "Copy"}
+          </button>
+        </div>
       </div>
       <p style={{
         fontFamily: "'DM Sans', sans-serif",
@@ -176,7 +206,7 @@ function ReplyCard({ tone, reply, delay }) {
         padding: "14px 16px",
         borderLeft: `3px solid ${tone.border}`,
       }}>
-        {reply}
+        {regenerating ? "Rewriting..." : reply}
       </p>
     </div>
   );
@@ -276,6 +306,27 @@ export default function App() {
       setError("Could not connect. Please check your internet and try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function regenerateOne(tone) {
+    try {
+      const res = await fetch(`${API_BASE}/api/regenerate-one`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, relationship, outcome, context, tone }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Could not regenerate. Try again.");
+        return;
+      }
+
+      setReplies(prev => ({ ...prev, [tone]: data.reply }));
+    } catch (err) {
+      setError("Could not connect. Please check your internet and try again.");
     }
   }
 
@@ -548,7 +599,7 @@ export default function App() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {TONES.map((tone, i) => (
-                <ReplyCard key={tone.id} tone={tone} reply={replies[tone.id] || ""} delay={i * 180} />
+                <ReplyCard key={tone.id} tone={tone} reply={replies[tone.id] || ""} delay={i * 180} onRegenerate={regenerateOne} />
               ))}
             </div>
 
