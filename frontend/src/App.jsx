@@ -325,6 +325,7 @@ export default function App() {
       }
 
       setReplies(prev => ({ ...prev, [tone]: data.reply }));
+      setError(null);
     } catch (err) {
       setError("Could not connect. Please check your internet and try again.");
     }
