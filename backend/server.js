@@ -67,15 +67,29 @@ RELATIONSHIP: ${relationship}
 DESIRED OUTCOME: ${outcome}
 ${safeContext ? `EXTRA CONTEXT: ${safeContext}` : ""}
 
-Generate exactly 3 replies in different tones. Each reply must be:
-- Ready to send as-is (no placeholders like [Name])
-- Natural and human, not robotic or corporate
-- Appropriate for the relationship and outcome
-- Between 2-5 sentences typically
+Do TWO things in one response:
+
+1. ANALYZE the received message:
+   - tone: one of "passive-aggressive", "demanding", "guilt-tripping", "friendly", "dismissive", "manipulative", "unclear"
+   - intensity: "Low", "Medium", or "High"
+   - real_intent: what they actually want underneath the words (1 sentence, max 15 words)
+   - how_to_handle: one practical line of advice for dealing with this person (1 sentence, max 15 words)
+
+2. GENERATE exactly 3 replies in different tones. Each reply must be:
+   - Ready to send as-is (no placeholders like [Name])
+   - Natural and human, not robotic or corporate
+   - Appropriate for the relationship and outcome
+   - Between 2-5 sentences typically
 
 Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 
 {
+  "analysis": {
+    "tone": "<detected tone>",
+    "intensity": "<Low/Medium/High>",
+    "real_intent": "<what they actually want>",
+    "how_to_handle": "<one line of advice>"
+  },
   "diplomatic": "<firm but kind, professional>",
   "warm": "<gentle, caring, preserves relationship>",
   "direct": "<clear, no fluff, gets point across>"
@@ -92,7 +106,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
         },
         body: JSON.stringify({
           model: "deepseek-chat",
-          max_tokens: 800,
+          max_tokens: 1000,
           temperature: 0.8,
           messages: [
             {
@@ -118,7 +132,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
     const parsed = JSON.parse(clean);
 
     // Validate shape
-    if (!parsed.diplomatic || !parsed.warm || !parsed.direct) {
+    if (!parsed.diplomatic || !parsed.warm || !parsed.direct || !parsed.analysis) {
       throw new Error("Invalid AI response shape");
     }
 

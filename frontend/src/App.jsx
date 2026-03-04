@@ -110,6 +110,7 @@ function Step({ number, label, active, done }) {
 
 function ReplyCard({ tone, reply, delay, onRegenerate }) {
   const [copied, setCopied] = useState(false);
+  const [creditCopied, setCreditCopied] = useState(false);
   const [visible, setVisible] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
@@ -124,11 +125,36 @@ function ReplyCard({ tone, reply, delay, onRegenerate }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function copyWithCredit() {
+    navigator.clipboard.writeText(`${reply}\n\n— via replycraft.in`);
+    setCreditCopied(true);
+    setTimeout(() => setCreditCopied(false), 2000);
+  }
+
+  function shareWhatsApp() {
+    const text = `Used this AI tool to reply to a tough message \u{1F447}\n\n${reply}\n\nTry it free: https://replycraft.in`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  }
+
   async function handleRegenerate() {
     setRegenerating(true);
     await onRegenerate(tone.id);
     setRegenerating(false);
   }
+
+  const btnBase = {
+    background: "transparent",
+    border: `1.5px solid ${tone.border}`,
+    borderRadius: 8,
+    color: tone.color,
+    cursor: "pointer",
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: 12,
+    fontWeight: 600,
+    padding: "6px 12px",
+    transition: "all 0.2s",
+    whiteSpace: "nowrap",
+  };
 
   return (
     <div style={{
@@ -157,37 +183,18 @@ function ReplyCard({ tone, reply, delay, onRegenerate }) {
             onClick={handleRegenerate}
             disabled={regenerating}
             title="Regenerate this reply"
-            style={{
-              background: "transparent",
-              border: `1.5px solid ${tone.border}`,
-              borderRadius: 8,
-              color: tone.color,
-              cursor: regenerating ? "not-allowed" : "pointer",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 12,
-              fontWeight: 600,
-              padding: "6px 12px",
-              transition: "all 0.2s",
-              whiteSpace: "nowrap",
-              opacity: regenerating ? 0.5 : 1,
-            }}
+            style={{ ...btnBase, opacity: regenerating ? 0.5 : 1, cursor: regenerating ? "not-allowed" : "pointer" }}
           >
             {regenerating ? "↻ ..." : "↻ New"}
           </button>
           <button
             onClick={copyText}
             style={{
+              ...btnBase,
               background: copied ? tone.color : "transparent",
-              border: `1.5px solid ${copied ? tone.color : tone.border}`,
-              borderRadius: 8,
+              borderColor: copied ? tone.color : tone.border,
               color: copied ? "#fff" : tone.color,
-              cursor: "pointer",
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 12,
-              fontWeight: 600,
               padding: "6px 14px",
-              transition: "all 0.2s",
-              whiteSpace: "nowrap",
             }}
           >
             {copied ? "✓ Copied!" : "Copy"}
@@ -208,6 +215,104 @@ function ReplyCard({ tone, reply, delay, onRegenerate }) {
       }}>
         {regenerating ? "Rewriting..." : reply}
       </p>
+      <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+        <button onClick={shareWhatsApp} title="Share on WhatsApp" style={btnBase}>
+          Share on WhatsApp
+        </button>
+        <button
+          onClick={copyWithCredit}
+          title="Copy with replycraft.in credit"
+          style={{
+            ...btnBase,
+            background: creditCopied ? tone.color : "transparent",
+            borderColor: creditCopied ? tone.color : tone.border,
+            color: creditCopied ? "#fff" : tone.color,
+          }}
+        >
+          {creditCopied ? "✓ Copied!" : "Copy + Credit"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const INTENSITY_COLORS = {
+  Low: { color: "#2D6A4F", bg: "#F0FFF4", border: "#B7E4C7" },
+  Medium: { color: "#92400E", bg: "#FFFBEB", border: "#FDE68A" },
+  High: { color: "#991B1B", bg: "#FFF5F5", border: "#FECACA" },
+};
+
+function AnalysisCard({ analysis }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { setTimeout(() => setVisible(true), 60); }, []);
+
+  const ic = INTENSITY_COLORS[analysis.intensity] || INTENSITY_COLORS.Medium;
+
+  return (
+    <div style={{
+      background: "#fff",
+      border: "1.5px solid #ede5d8",
+      borderRadius: 16,
+      padding: "20px 22px",
+      marginBottom: 20,
+      opacity: visible ? 1 : 0,
+      transform: visible ? "translateY(0)" : "translateY(12px)",
+      transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <span style={{ fontSize: 16 }}>🔍</span>
+        <span style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 14, fontWeight: 700, color: "#2a1f17",
+        }}>Message X-Ray</span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+        <div style={{
+          background: "#FAF7F2", borderRadius: 10, padding: "10px 14px",
+        }}>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+            Tone Detected
+          </div>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600, color: "#2a1f17", textTransform: "capitalize" }}>
+            {analysis.tone}
+          </div>
+        </div>
+
+        <div style={{
+          background: "#FAF7F2", borderRadius: 10, padding: "10px 14px",
+        }}>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+            Emotional Intensity
+          </div>
+          <span style={{
+            fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600,
+            color: ic.color, background: ic.bg,
+            border: `1px solid ${ic.border}`,
+            borderRadius: 6, padding: "2px 10px",
+          }}>
+            {analysis.intensity}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ background: "#FAF7F2", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+          What they actually want
+        </div>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 500, color: "#2a1f17", lineHeight: 1.5 }}>
+          {analysis.real_intent}
+        </div>
+      </div>
+
+      <div style={{ background: "#FAF7F2", borderRadius: 10, padding: "10px 14px" }}>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+          How to handle this
+        </div>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 500, color: "#4a3f35", fontStyle: "italic", lineHeight: 1.5 }}>
+          {analysis.how_to_handle}
+        </div>
+      </div>
     </div>
   );
 }
@@ -590,6 +695,8 @@ export default function App() {
         {/* Results */}
         {replies && !loading && (
           <div ref={resultRef} className="section">
+            {replies.analysis && <AnalysisCard analysis={replies.analysis} />}
+
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingTop: 4 }}>
               <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
               <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, color: "#9a8f85", fontStyle: "italic" }}>
