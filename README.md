@@ -40,4 +40,4 @@ Your messages are never stored or logged on our servers. Everything is processed
 - Email mode with subject lines
 - Multi-language support
 
-Join the waitlist inside the app to get early access + 30 days free.
+Click "Go Pro" in the app to join the waitlist and get early access + 30 days free.
