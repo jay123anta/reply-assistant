@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
+const fs = require("fs").promises;
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
@@ -12,7 +14,7 @@ app.use(express.json({ limit: "10kb" })); // reject huge payloads
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["POST"],
+    methods: ["GET", "POST"],
   })
 );
 
@@ -36,7 +38,7 @@ app.get("/api/health", (req, res) => {
 
 // ─── Main Reply Endpoint ───────────────────────────────────────
 app.post("/api/generate-reply", async (req, res) => {
-  const { message, relationship, outcome, context } = req.body;
+  const { message, relationship, outcome, context, length, mode, subject } = req.body;
 
   // Input validation
   if (!message || typeof message !== "string") {
@@ -52,15 +54,39 @@ app.post("/api/generate-reply", async (req, res) => {
     return res.status(400).json({ error: "Relationship and outcome are required." });
   }
 
-  // Sanitise optional context
+  // Sanitise optional fields
   const safeContext =
     context && typeof context === "string"
       ? context.slice(0, 300)
       : "";
+  const safeSubject =
+    subject && typeof subject === "string"
+      ? subject.slice(0, 200)
+      : "";
+  const isEmail = mode === "email";
 
-  const prompt = `You are an expert communication coach helping someone craft the perfect reply to a difficult message.
+  const lengthGuides = {
+    short: "1-2 sentences, straight to the point, no extra explanation",
+    medium: "3-4 sentences, balanced with enough context",
+    long: "a full paragraph (5-7 sentences), with more explanation and nuance",
+  };
+  const safeLength = ["short", "medium", "long"].includes(length) ? length : "medium";
+  const lengthInstruction = lengthGuides[safeLength];
 
-THE MESSAGE THEY RECEIVED:
+  const emailExtra = isEmail
+    ? `\nFORMAT: Full email drafts. Each reply MUST include:
+- A proper greeting (e.g. "Hi [appropriate name]," or "Hello,")
+- The email body
+- A professional sign-off (e.g. "Best regards," or "Thanks,")
+Do NOT use placeholder names like [Name] — use generic but natural greetings.
+${safeSubject ? `USE THIS SUBJECT LINE: "${safeSubject}"` : "Also suggest a subject line for the reply email."}
+
+3. SUBJECT LINE: ${safeSubject ? `"${safeSubject}"` : "Suggest a concise, professional subject line for the reply."}`
+    : "";
+
+  const prompt = `You are an expert communication coach helping someone craft the perfect reply to a difficult ${isEmail ? "email" : "message"}.
+
+THE ${isEmail ? "EMAIL" : "MESSAGE"} THEY RECEIVED:
 "${message.trim()}"
 
 RELATIONSHIP: ${relationship}
@@ -69,7 +95,7 @@ ${safeContext ? `EXTRA CONTEXT: ${safeContext}` : ""}
 
 Do TWO things in one response:
 
-1. ANALYZE the received message:
+1. ANALYZE the received ${isEmail ? "email" : "message"}:
    - tone: one of "passive-aggressive", "demanding", "guilt-tripping", "friendly", "dismissive", "manipulative", "unclear"
    - intensity: "Low", "Medium", or "High"
    - real_intent: what they actually want underneath the words (1 sentence, max 15 words)
@@ -79,7 +105,7 @@ Do TWO things in one response:
    - Ready to send as-is (no placeholders like [Name])
    - Natural and human, not robotic or corporate
    - Appropriate for the relationship and outcome
-   - Between 2-5 sentences typically
+   - LENGTH: ${lengthInstruction}${emailExtra}
 
 Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 
@@ -89,7 +115,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
     "intensity": "<Low/Medium/High>",
     "real_intent": "<what they actually want>",
     "how_to_handle": "<one line of advice>"
-  },
+  },${isEmail ? '\n  "subject_line": "<suggested subject line>",' : ""}
   "diplomatic": "<firm but kind, professional>",
   "warm": "<gentle, caring, preserves relationship>",
   "direct": "<clear, no fluff, gets point across>"
@@ -106,7 +132,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
         },
         body: JSON.stringify({
           model: "deepseek-chat",
-          max_tokens: 1000,
+          max_tokens: isEmail ? 1500 : 1000,
           temperature: 0.8,
           messages: [
             {
@@ -121,8 +147,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
     );
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error("DeepSeek error:", errText);
+      console.error("DeepSeek error: HTTP", response.status);
       return res.status(502).json({ error: "AI service unavailable. Try again shortly." });
     }
 
@@ -136,6 +161,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
       throw new Error("Invalid AI response shape");
     }
 
+    // For email mode, pass through subject_line if present
     return res.json(parsed);
   } catch (err) {
     console.error("Generate error:", err.message);
@@ -145,7 +171,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 
 // ─── Regenerate Single Tone ─────────────────────────────────────
 app.post("/api/regenerate-one", async (req, res) => {
-  const { message, relationship, outcome, context, tone } = req.body;
+  const { message, relationship, outcome, context, tone, length, mode } = req.body;
 
   const validTones = ["diplomatic", "warm", "direct"];
   if (!validTones.includes(tone)) {
@@ -163,6 +189,15 @@ app.post("/api/regenerate-one", async (req, res) => {
 
   const safeContext =
     context && typeof context === "string" ? context.slice(0, 300) : "";
+  const isEmail = mode === "email";
+
+  const lengthGuides = {
+    short: "1-2 sentences, straight to the point",
+    medium: "3-4 sentences, balanced with enough context",
+    long: "a full paragraph (5-7 sentences), with more explanation and nuance",
+  };
+  const safeLength = ["short", "medium", "long"].includes(length) ? length : "medium";
+  const lengthInstruction = lengthGuides[safeLength];
 
   const toneDescriptions = {
     diplomatic: "firm but kind, professional",
@@ -170,9 +205,13 @@ app.post("/api/regenerate-one", async (req, res) => {
     direct: "clear, no fluff, gets the point across",
   };
 
-  const prompt = `You are an expert communication coach helping someone craft the perfect reply to a difficult message.
+  const emailExtra = isEmail
+    ? `\nFORMAT: Full email draft with proper greeting and professional sign-off. No placeholder names like [Name].`
+    : "";
 
-THE MESSAGE THEY RECEIVED:
+  const prompt = `You are an expert communication coach helping someone craft the perfect reply to a difficult ${isEmail ? "email" : "message"}.
+
+THE ${isEmail ? "EMAIL" : "MESSAGE"} THEY RECEIVED:
 "${message.trim()}"
 
 RELATIONSHIP: ${relationship}
@@ -184,8 +223,8 @@ The reply must be:
 - Ready to send as-is (no placeholders like [Name])
 - Natural and human, not robotic or corporate
 - Appropriate for the relationship and outcome
-- Between 2-5 sentences typically
-- DIFFERENT from any previous version — fresh wording
+- LENGTH: ${lengthInstruction}
+- DIFFERENT from any previous version — fresh wording${emailExtra}
 
 Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 
@@ -202,7 +241,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
         },
         body: JSON.stringify({
           model: "deepseek-chat",
-          max_tokens: 300,
+          max_tokens: isEmail ? 500 : 300,
           temperature: 0.9,
           messages: [
             {
@@ -217,8 +256,7 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
     );
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error("DeepSeek error:", errText);
+      console.error("DeepSeek error: HTTP", response.status);
       return res.status(502).json({ error: "AI service unavailable. Try again shortly." });
     }
 
@@ -235,6 +273,87 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
   } catch (err) {
     console.error("Regenerate error:", err.message);
     return res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
+// ─── Waitlist ─────────────────────────────────────────────────
+const DATA_DIR = path.join(__dirname, "data");
+const WAITLIST_PATH = path.join(DATA_DIR, "waitlist.json");
+const WAITLIST_SEED = 143;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Ensure data directory exists
+fs.mkdir(DATA_DIR, { recursive: true }).catch(() => {});
+
+async function readWaitlist() {
+  try {
+    const raw = await fs.readFile(WAITLIST_PATH, "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return { entries: [] };
+  }
+}
+
+let writeChain = Promise.resolve();
+function writeWaitlistSafe(fn) {
+  writeChain = writeChain.then(async () => {
+    const data = await readWaitlist();
+    const result = fn(data);
+    await fs.writeFile(WAITLIST_PATH, JSON.stringify(result, null, 2), "utf-8");
+    return result;
+  });
+  return writeChain;
+}
+
+const waitlistLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: "Too many signups. Please try again later." },
+});
+
+app.get("/api/waitlist/count", async (req, res) => {
+  try {
+    const data = await readWaitlist();
+    res.json({ count: WAITLIST_SEED + data.entries.length });
+  } catch {
+    res.json({ count: WAITLIST_SEED });
+  }
+});
+
+app.post("/api/waitlist", waitlistLimiter, async (req, res) => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== "string") {
+    return res.status(400).json({ error: "Email is required." });
+  }
+
+  const cleaned = email.trim().toLowerCase();
+
+  if (cleaned.length > 254 || !EMAIL_RE.test(cleaned)) {
+    return res.status(400).json({ error: "Please enter a valid email address." });
+  }
+
+  try {
+    const result = await writeWaitlistSafe((data) => {
+      const exists = data.entries.some((e) => e.email === cleaned);
+      if (!exists) {
+        data.entries.push({
+          email: cleaned,
+          joinedAt: new Date().toISOString(),
+          source: "pro-page",
+        });
+      }
+      return data;
+    });
+
+    res.json({
+      success: true,
+      message: "You're in! We'll email you when Pro launches.",
+      count: WAITLIST_SEED + result.entries.length,
+    });
+  } catch (err) {
+    console.error("Waitlist error:", err.message);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 

@@ -5,6 +5,14 @@ import { useState, useEffect, useRef } from "react";
 // Production: https://your-backend.onrender.com
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
+// Safari private browsing throws on localStorage.setItem
+function safeSetItem(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* quota exceeded in private mode */ }
+}
+function safeGetItem(key, fallback = null) {
+  try { return localStorage.getItem(key); } catch { return fallback; }
+}
+
 // ─── Data ──────────────────────────────────────────────────────
 const RELATIONSHIPS = [
   { id: "Boss", label: "Boss", emoji: "💼" },
@@ -17,7 +25,7 @@ const RELATIONSHIPS = [
   { id: "Stranger", label: "Stranger / Other", emoji: "🌐" },
 ];
 
-const OUTCOMES = [
+const OUTCOMES_MESSAGE = [
   { id: "Hold my boundary", label: "Hold my boundary", desc: "Say no clearly" },
   { id: "Keep the peace", label: "Keep the peace", desc: "Avoid conflict" },
   { id: "Clarify a misunderstanding", label: "Clarify a misunderstanding", desc: "Clear the air" },
@@ -26,7 +34,17 @@ const OUTCOMES = [
   { id: "Buy more time", label: "Buy more time", desc: "Delay without offending" },
 ];
 
-const EXAMPLES = [
+const OUTCOMES_EMAIL = [
+  { id: "Hold my boundary", label: "Hold my boundary", desc: "Say no clearly" },
+  { id: "Keep the peace", label: "Keep the peace", desc: "Avoid conflict" },
+  { id: "Clarify a misunderstanding", label: "Clarify a misunderstanding", desc: "Clear the air" },
+  { id: "Decline gracefully", label: "Decline gracefully", desc: "Say no politely" },
+  { id: "Assert myself", label: "Assert myself", desc: "Stand my ground" },
+  { id: "Buy more time", label: "Buy more time", desc: "Delay without offending" },
+  { id: "Follow up professionally", label: "Follow up professionally", desc: "Nudge without nagging" },
+];
+
+const EXAMPLES_MESSAGE = [
   {
     label: "Passive-aggressive boss",
     msg: "I thought you said you'd have this done by EOD yesterday? I guess I need to lower my expectations then.",
@@ -52,6 +70,91 @@ const EXAMPLES = [
     out: "Hold my boundary",
   },
 ];
+
+const EXAMPLES_EMAIL = [
+  {
+    label: "Scope creep client",
+    msg: "Hi, I know we signed off on the design last week, but can you also add a login page and dashboard? Shouldn't take long right?",
+    rel: "Client",
+    out: "Hold my boundary",
+  },
+  {
+    label: "Late payment follow-up",
+    msg: "Thanks for the great work! We'll process the payment soon, just some internal delays on our end.",
+    rel: "Client",
+    out: "Follow up professionally",
+  },
+  {
+    label: "Micromanaging boss",
+    msg: "Going forward, I'd like you to CC me on every email you send to the team. Just so I'm in the loop.",
+    rel: "Boss",
+    out: "Assert myself",
+  },
+];
+
+const LENGTHS = [
+  { id: "short",  label: "Short",  desc: "1-2 sentences" },
+  { id: "medium", label: "Medium", desc: "3-4 sentences" },
+  { id: "long",   label: "Long",   desc: "Full paragraph" },
+];
+
+// ─── Auto-detect helpers ────────────────────────────────────
+function detectFromMessage(text) {
+  const lower = text.toLowerCase();
+  const result = { relationship: null, tone: null, outcome: null };
+  if (lower.length < 10) return result;
+
+  // ── Relationship detection ──
+  const relKeywords = {
+    Boss: ["deadline", "eod", "end of day", "performance", "kpi", "deliverable", "sprint", "standup", "expectations", "lower my expectations", "report to me", "your task"],
+    Colleague: ["team meeting", "sync up", "let's sync", "slack me", "hop on a call", "standup"],
+    Client: ["invoice", "payment", "quote", "estimate", "contract", "scope", "proposal", "budget", "agreed on", "deliverable"],
+    Relative: ["married", "wedding", "getting younger", "family", "kids", "children", "everyone is asking", "your age", "settled down", "festival"],
+    Friend: ["lend me", "borrow", "pay you back", "hang out", "party", "catch up", "dude", "bro", "good for it"],
+    Landlord: ["rent", "lease", "apartment", "flat", "deposit", "maintenance", "repair", "tenant", "property", "move out"],
+    Partner: ["if you loved", "our relationship", "feel about us", "trust me", "give me space", "commitment", "i miss you"],
+    Stranger: [],
+  };
+
+  for (const [rel, keywords] of Object.entries(relKeywords)) {
+    if (keywords.some((kw) => lower.includes(kw))) {
+      result.relationship = rel;
+      break;
+    }
+  }
+
+  // ── Tone detection ──
+  const tonePatterns = [
+    { tone: "passive-aggressive", phrases: ["i guess", "whatever you say", "fine then", "if you say so", "no worries though", "i thought you", "but okay", "but ok", "lower my expectations", "sure, go ahead"] },
+    { tone: "demanding", phrases: ["i need this", "asap", "immediately", "right now", "must be done", "urgent", "by tonight", "by today", "no excuses", "i expect"] },
+    { tone: "guilt-tripping", phrases: ["after all i", "i sacrificed", "you never", "you always", "don't you care", "remember when i", "for your sake", "everything i did", "how could you"] },
+    { tone: "manipulative", phrases: ["if you loved", "everyone thinks", "you're the only one", "you owe", "after everything", "no one else would", "i'm the only one"] },
+    { tone: "friendly", phrases: ["hope you're", "how are you", "miss you", "thanks for", "appreciate", "catch up", "good to hear"] },
+    { tone: "dismissive", phrases: ["doesn't matter", "forget it", "not important", "never mind", "drop it", "whatever", "don't bother"] },
+  ];
+
+  for (const { tone, phrases } of tonePatterns) {
+    if (phrases.some((p) => lower.includes(p))) {
+      result.tone = tone;
+      break;
+    }
+  }
+
+  // ── Outcome suggestion based on tone ──
+  const toneToOutcome = {
+    "passive-aggressive": "Assert myself",
+    demanding: "Hold my boundary",
+    "guilt-tripping": "Hold my boundary",
+    manipulative: "Hold my boundary",
+    friendly: "Keep the peace",
+    dismissive: "Clarify a misunderstanding",
+  };
+  if (result.tone) {
+    result.outcome = toneToOutcome[result.tone] || null;
+  }
+
+  return result;
+}
 
 const TONES = [
   {
@@ -108,7 +211,7 @@ function Step({ number, label, active, done }) {
   );
 }
 
-function ReplyCard({ tone, reply, delay, onRegenerate }) {
+function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject }) {
   const [copied, setCopied] = useState(false);
   const [creditCopied, setCreditCopied] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -119,14 +222,22 @@ function ReplyCard({ tone, reply, delay, onRegenerate }) {
     return () => clearTimeout(t);
   }, [delay]);
 
+  function haptic() {
+    if (navigator.vibrate) navigator.vibrate(50);
+  }
+
   function copyText() {
-    navigator.clipboard.writeText(reply);
+    const text = mode === "email" && subject ? `Subject: ${subject}\n\n${reply}` : reply;
+    navigator.clipboard.writeText(text);
+    haptic();
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   function copyWithCredit() {
-    navigator.clipboard.writeText(`${reply}\n\n— via replycraft.in`);
+    const body = mode === "email" && subject ? `Subject: ${subject}\n\n${reply}` : reply;
+    navigator.clipboard.writeText(`${body}\n\n— via replycraft.in`);
+    haptic();
     setCreditCopied(true);
     setTimeout(() => setCreditCopied(false), 2000);
   }
@@ -157,7 +268,7 @@ function ReplyCard({ tone, reply, delay, onRegenerate }) {
   };
 
   return (
-    <div style={{
+    <div className="reply-card" style={{
       background: tone.bg,
       border: `1.5px solid ${tone.border}`,
       borderRadius: 16,
@@ -183,12 +294,14 @@ function ReplyCard({ tone, reply, delay, onRegenerate }) {
             onClick={handleRegenerate}
             disabled={regenerating}
             title="Regenerate this reply"
+            className="action-btn-mobile"
             style={{ ...btnBase, opacity: regenerating ? 0.5 : 1, cursor: regenerating ? "not-allowed" : "pointer" }}
           >
             {regenerating ? "↻ ..." : "↻ New"}
           </button>
           <button
             onClick={copyText}
+            className="action-btn-mobile"
             style={{
               ...btnBase,
               background: copied ? tone.color : "transparent",
@@ -215,13 +328,14 @@ function ReplyCard({ tone, reply, delay, onRegenerate }) {
       }}>
         {regenerating ? "Rewriting..." : reply}
       </p>
-      <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
-        <button onClick={shareWhatsApp} title="Share on WhatsApp" style={btnBase}>
+      <div className="reply-actions" style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+        <button onClick={shareWhatsApp} title="Share on WhatsApp" className="action-btn-mobile" style={btnBase}>
           Share on WhatsApp
         </button>
         <button
           onClick={copyWithCredit}
           title="Copy with replycraft.in credit"
+          className="action-btn-mobile"
           style={{
             ...btnBase,
             background: creditCopied ? tone.color : "transparent",
@@ -267,7 +381,7 @@ function AnalysisCard({ analysis }) {
         }}>Message X-Ray</span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+      <div className="analysis-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
         <div style={{
           background: "#FAF7F2", borderRadius: 10, padding: "10px 14px",
         }}>
@@ -401,6 +515,106 @@ function HistoryCard({ item, onLoad }) {
   );
 }
 
+function SmartSuggestions({ suggestions, onAcceptRel, onAcceptOutcome, onDismiss }) {
+  if (!suggestions.tone && !suggestions.relationship && !suggestions.outcome) return null;
+
+  const pillStyle = {
+    background: "#fff",
+    border: "1.5px solid #e5ddd3",
+    borderRadius: 20,
+    color: "#4a3f35",
+    cursor: "pointer",
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: 12,
+    fontWeight: 500,
+    padding: "5px 12px",
+    transition: "all 0.2s",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+  };
+
+  const TONE_LABELS = {
+    "passive-aggressive": { emoji: "😤", label: "passive-aggressive" },
+    demanding: { emoji: "⚡", label: "demanding" },
+    "guilt-tripping": { emoji: "😢", label: "guilt-tripping" },
+    manipulative: { emoji: "🎭", label: "manipulative" },
+    friendly: { emoji: "😊", label: "friendly" },
+    dismissive: { emoji: "🙄", label: "dismissive" },
+  };
+
+  const toneInfo = suggestions.tone ? TONE_LABELS[suggestions.tone] : null;
+  const rel = suggestions.relationship ? RELATIONSHIPS.find((r) => r.id === suggestions.relationship) : null;
+  const out = suggestions.outcome ? OUTCOMES.find((o) => o.id === suggestions.outcome) : null;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        alignItems: "center",
+        marginTop: 10,
+        animation: "fadeIn 0.3s ease forwards",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 11,
+          color: "#b0a090",
+          textTransform: "uppercase",
+          letterSpacing: 0.8,
+        }}
+      >
+        Detected:
+      </span>
+
+      {toneInfo && (
+        <span
+          style={{
+            ...pillStyle,
+            background: "#FFF5F5",
+            borderColor: "#FECACA",
+            color: "#991B1B",
+            cursor: "default",
+          }}
+        >
+          {toneInfo.emoji} Sounds {toneInfo.label}
+        </span>
+      )}
+
+      {rel && (
+        <button onClick={() => onAcceptRel(suggestions.relationship)} style={{ ...pillStyle, background: "#FFFBF5", borderColor: "#c4a882" }}>
+          {rel.emoji} {rel.label}?
+        </button>
+      )}
+
+      {out && (
+        <button onClick={() => onAcceptOutcome(suggestions.outcome)} style={{ ...pillStyle, background: "#F0FFF4", borderColor: "#B7E4C7", color: "#2D6A4F" }}>
+          → {out.label}?
+        </button>
+      )}
+
+      <button
+        onClick={onDismiss}
+        title="Dismiss suggestions"
+        style={{
+          background: "transparent",
+          border: "none",
+          color: "#c4b8aa",
+          cursor: "pointer",
+          fontSize: 14,
+          padding: "2px 4px",
+          lineHeight: 1,
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 function ThinkingAnimation() {
   const phrases = [
     "Reading the room...",
@@ -442,7 +656,9 @@ function ThinkingAnimation() {
 
 // ─── Main App ──────────────────────────────────────────────────
 export default function App() {
+  const [mode, setMode]             = useState("message"); // "message" | "email"
   const [message, setMessage]       = useState("");
+  const [subject, setSubject]       = useState("");
   const [relationship, setRel]      = useState(null);
   const [outcome, setOutcome]       = useState(null);
   const [context, setContext]       = useState("");
@@ -451,16 +667,43 @@ export default function App() {
   const [error, setError]           = useState(null);
   const [mounted, setMounted]       = useState(false);
   const [history, setHistory]       = useState([]);
+  const [suggestions, setSuggestions] = useState({ relationship: null, tone: null, outcome: null });
+  const [dismissed, setDismissed]   = useState(false);
+  const [replyLength, setReplyLength] = useState(() => safeGetItem("reply_length", "medium"));
   const resultRef                   = useRef(null);
 
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("reply_history") || "[]");
+      const saved = JSON.parse(safeGetItem("reply_history", "[]"));
       setHistory(saved);
     } catch { /* ignore corrupt data */ }
   }, []);
+
+  // Auto-detect relationship, tone, and outcome from message
+  useEffect(() => {
+    if (dismissed) return;
+    const detected = detectFromMessage(message);
+    setSuggestions(detected);
+  }, [message, dismissed]);
+
+  const OUTCOMES = mode === "email" ? OUTCOMES_EMAIL : OUTCOMES_MESSAGE;
+  const EXAMPLES = mode === "email" ? EXAMPLES_EMAIL : EXAMPLES_MESSAGE;
+
+  function switchMode(newMode) {
+    if (newMode === mode) return;
+    setMode(newMode);
+    setMessage("");
+    setSubject("");
+    setRel(null);
+    setOutcome(null);
+    setContext("");
+    setReplies(null);
+    setError(null);
+    setDismissed(false);
+    setSuggestions({ relationship: null, tone: null, outcome: null });
+  }
 
   function loadExample(ex) {
     setMessage(ex.msg);
@@ -468,6 +711,7 @@ export default function App() {
     setOutcome(ex.out);
     setReplies(null);
     setError(null);
+    setDismissed(true); // examples already set rel/outcome
   }
 
   function loadHistory(item) {
@@ -496,7 +740,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/generate-reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, relationship, outcome, context }),
+        body: JSON.stringify({ message, relationship, outcome, context, length: replyLength, mode, subject: mode === "email" ? subject : undefined }),
       });
 
       const data = await res.json();
@@ -518,7 +762,7 @@ export default function App() {
       };
       const updated = [entry, ...history.filter(h => h.message !== message)].slice(0, 5);
       setHistory(updated);
-      localStorage.setItem("reply_history", JSON.stringify(updated));
+      safeSetItem("reply_history", JSON.stringify(updated));
 
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err) {
@@ -533,7 +777,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/regenerate-one`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, relationship, outcome, context, tone }),
+        body: JSON.stringify({ message, relationship, outcome, context, tone, length: replyLength, mode, subject: mode === "email" ? subject : undefined }),
       });
 
       const data = await res.json();
@@ -550,13 +794,51 @@ export default function App() {
     }
   }
 
+  function changeLength(newLen) {
+    setReplyLength(newLen);
+    safeSetItem("reply_length", newLen);
+    if (replies && !loading) {
+      // Re-generate with new length
+      setTimeout(() => generateRepliesWithLength(newLen), 0);
+    }
+  }
+
+  async function generateRepliesWithLength(len) {
+    if (!message.trim() || !relationship || !outcome) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/generate-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, relationship, outcome, context, length: len, mode, subject: mode === "email" ? subject : undefined }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Something went wrong. Please try again.");
+        return;
+      }
+
+      setReplies(data);
+    } catch (err) {
+      setError("Could not connect. Please check your internet and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function reset() {
     setReplies(null);
     setMessage("");
+    setSubject("");
     setRel(null);
     setOutcome(null);
     setContext("");
     setError(null);
+    setDismissed(false);
+    setSuggestions({ relationship: null, tone: null, outcome: null });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -630,6 +912,46 @@ export default function App() {
         }
         input[type="text"]:focus { border-color:#c4a882; box-shadow:0 0 0 3px #c4a88215; }
         input[type="text"]::placeholder { color:#c4b8aa; }
+
+        /* ─── Mobile optimisations ───────────────────────── */
+        @media (max-width: 600px) {
+          .rel-scroll {
+            display:flex !important; overflow-x:auto; gap:8px;
+            padding-bottom:6px; scroll-snap-type:x mandatory;
+            -webkit-overflow-scrolling:touch;
+          }
+          .rel-scroll::-webkit-scrollbar { display:none; }
+          .rel-scroll .rel-btn {
+            flex-shrink:0; scroll-snap-align:start;
+            min-width:auto; white-space:nowrap;
+          }
+          .action-btn-mobile {
+            min-height:44px !important; min-width:44px !important;
+            padding:10px 14px !important; font-size:13px !important;
+          }
+          .floating-gen {
+            position:fixed; bottom:0; left:0; right:0;
+            padding:12px 20px; padding-bottom:max(12px, env(safe-area-inset-bottom));
+            background:linear-gradient(transparent, #FAF7F2 20%);
+            z-index:100; display:flex; justify-content:center;
+          }
+          .floating-gen .generate-btn {
+            width:100%; max-width:400px; padding:16px 24px !important;
+            font-size:15px !important; border-radius:12px !important;
+          }
+        }
+        @media (min-width: 601px) {
+          .floating-gen { display:none; }
+        }
+        @media (max-width: 390px) {
+          .main-card { padding:20px 16px !important; }
+          .reply-card { padding:16px 14px !important; }
+          .reply-actions { flex-wrap:wrap; }
+          .analysis-grid { grid-template-columns:1fr !important; }
+          textarea { padding:14px 14px !important; font-size:14px !important; }
+          .generate-btn { padding:16px 24px !important; font-size:14px !important; }
+          .length-toggle button { padding:6px 12px !important; font-size:11px !important; }
+        }
       `}</style>
 
       <div style={{
@@ -658,9 +980,69 @@ export default function App() {
           </p>
         </div>
 
+        {/* Mode toggle */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
+          <div style={{
+            display: "inline-flex", background: "#fff", border: "1.5px solid #e5ddd3",
+            borderRadius: 12, padding: 3, gap: 2,
+          }}>
+            <button
+              style={{
+                background: "#2a1f17",
+                border: "none",
+                borderRadius: 10,
+                color: "#FAF7F2",
+                cursor: "default",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "8px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>💬</span>Message
+            </button>
+            <button
+              disabled
+              title="Email mode coming soon!"
+              style={{
+                background: "transparent",
+                border: "none",
+                borderRadius: 10,
+                color: "#c4b8aa",
+                cursor: "not-allowed",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "8px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                opacity: 0.6,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>📧</span>Email
+              <span style={{
+                fontSize: 9,
+                fontWeight: 700,
+                background: "#c4a882",
+                color: "#fff",
+                borderRadius: 4,
+                padding: "1px 5px",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+              }}>
+                Soon
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Progress steps */}
         <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 36, flexWrap: "wrap" }}>
-          <Step number={1} label="The message"  active={cs === 1} done={cs > 1} />
+          <Step number={1} label={mode === "email" ? "The email" : "The message"}  active={cs === 1} done={cs > 1} />
           <div style={{ width: 20, height: 1, background: "#e5ddd3", alignSelf: "center" }} />
           <Step number={2} label="Who sent it"  active={cs === 2} done={cs > 2} />
           <div style={{ width: 20, height: 1, background: "#e5ddd3", alignSelf: "center" }} />
@@ -668,7 +1050,7 @@ export default function App() {
         </div>
 
         {/* Main card */}
-        <div style={{
+        <div className="main-card" style={{
           background: "#fff", border: "1.5px solid #ede5d8",
           borderRadius: 20, padding: "28px 24px",
           boxShadow: "0 4px 32px rgba(42,31,23,0.06)", marginBottom: 24,
@@ -680,13 +1062,15 @@ export default function App() {
               fontFamily: "'Playfair Display', serif", fontSize: 16,
               fontWeight: 600, color: "#2a1f17", display: "block", marginBottom: 10,
             }}>
-              1. Paste the message you received
+              1. Paste the {mode === "email" ? "email" : "message"} you received
             </label>
             <textarea
               rows={4}
               value={message}
-              onChange={e => setMessage(e.target.value)}
-              placeholder="Paste what they sent you — WhatsApp, email, text, anything..."
+              onChange={e => { setMessage(e.target.value); setDismissed(false); }}
+              placeholder={mode === "email"
+                ? "Paste the email you received — from inbox, forwarded, anything..."
+                : "Paste what they sent you — WhatsApp, email, text, anything..."}
             />
             <div style={{ marginTop: 12 }}>
               <span style={{ fontSize: 11, color: "#b0a090", fontFamily: "'DM Sans',sans-serif", marginRight: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>
@@ -700,6 +1084,31 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            {/* Smart auto-detect suggestions */}
+            {!dismissed && (
+              <SmartSuggestions
+                suggestions={suggestions}
+                onAcceptRel={(rel) => { setRel(rel); setSuggestions(s => ({ ...s, relationship: null })); }}
+                onAcceptOutcome={(out) => { setOutcome(out); setSuggestions(s => ({ ...s, outcome: null })); }}
+                onDismiss={() => setDismissed(true)}
+              />
+            )}
+
+            {/* Subject line for email mode */}
+            {mode === "email" && message.trim() && (
+              <div style={{ marginTop: 14 }}>
+                <label style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 500, color: "#7a6a5a", display: "block", marginBottom: 6 }}>
+                  Subject line for your reply <span style={{ color: "#b0a090" }}>(optional — AI will suggest one)</span>
+                </label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                  placeholder="e.g. Re: Project timeline update"
+                />
+              </div>
+            )}
           </div>
 
           <div style={{ height: 1, background: "#f0e8de", marginBottom: 28 }} />
@@ -713,7 +1122,7 @@ export default function App() {
             }}>
               2. Who sent this to you?
             </label>
-            <div style={{
+            <div className="rel-scroll" style={{
               display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8,
               opacity: message.trim() ? 1 : 0.4,
               pointerEvents: message.trim() ? "auto" : "none",
@@ -783,7 +1192,9 @@ export default function App() {
               onClick={generateReplies}
               disabled={!message.trim() || !relationship || !outcome || loading}
             >
-              {loading ? "Writing your replies..." : "✍️  Write my replies"}
+              {loading
+                ? (mode === "email" ? "Drafting your emails..." : "Writing your replies...")
+                : (mode === "email" ? "📧  Draft my emails" : "✍️  Write my replies")}
             </button>
           </div>
         </div>
@@ -832,14 +1243,71 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingTop: 4 }}>
               <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
               <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, color: "#9a8f85", fontStyle: "italic" }}>
-                Your 3 replies
+                {mode === "email" ? "Your 3 email drafts" : "Your 3 replies"}
               </span>
               <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
             </div>
 
+            {/* Length toggle */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+              <div className="length-toggle" style={{
+                display: "inline-flex", background: "#fff", border: "1.5px solid #e5ddd3",
+                borderRadius: 10, padding: 3, gap: 2,
+              }}>
+                {LENGTHS.map(l => (
+                  <button
+                    key={l.id}
+                    onClick={() => changeLength(l.id)}
+                    disabled={loading}
+                    title={l.desc}
+                    style={{
+                      background: replyLength === l.id ? "#2a1f17" : "transparent",
+                      border: "none",
+                      borderRadius: 8,
+                      color: replyLength === l.id ? "#FAF7F2" : "#9a8f85",
+                      cursor: loading ? "not-allowed" : "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      padding: "6px 16px",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Email subject line display */}
+            {mode === "email" && replies.subject_line && (
+              <div style={{
+                background: "#fff", border: "1.5px solid #e5ddd3", borderRadius: 12,
+                padding: "12px 16px", marginBottom: 16,
+                display: "flex", alignItems: "center", gap: 10,
+              }}>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, flexShrink: 0 }}>
+                  Subject:
+                </span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, color: "#2a1f17" }}>
+                  {replies.subject_line}
+                </span>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(replies.subject_line); }}
+                  style={{
+                    background: "transparent", border: "1px solid #e5ddd3", borderRadius: 6,
+                    color: "#9a8f85", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                    fontSize: 11, padding: "3px 8px", marginLeft: "auto", flexShrink: 0,
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {TONES.map((tone, i) => (
-                <ReplyCard key={tone.id} tone={tone} reply={replies[tone.id] || ""} delay={i * 180} onRegenerate={regenerateOne} />
+                <ReplyCard key={tone.id} tone={tone} reply={replies[tone.id] || ""} delay={i * 180} onRegenerate={regenerateOne} mode={mode} subject={replies.subject_line || subject} />
               ))}
             </div>
 
@@ -849,18 +1317,36 @@ export default function App() {
                 borderRadius: 10, color: "#9a8f85", cursor: "pointer",
                 fontFamily: "'DM Sans',sans-serif", fontSize: 13, padding: "10px 22px", transition: "all 0.2s",
               }}>
-                ↩ Reply to a different message
+                {mode === "email" ? "↩ Reply to a different email" : "↩ Reply to a different message"}
               </button>
             </div>
           </div>
         )}
 
         {/* Footer */}
-        <div style={{ textAlign: "center", marginTop: 48, fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#c4b8aa", lineHeight: 1.8 }}>
+        <div style={{ textAlign: "center", marginTop: 48, paddingBottom: 60, fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#c4b8aa", lineHeight: 1.8 }}>
           <p>Your messages are never stored or shared.</p>
           <p>Built with care for every difficult conversation. 💛</p>
+          <p style={{ marginTop: 8 }}>
+            <a href="/pro" style={{ color: "#c4a882", textDecoration: "none", fontWeight: 500 }}>
+              Reply Pro coming soon →
+            </a>
+          </p>
         </div>
       </div>
+
+      {/* Floating mobile generate button */}
+      {!replies && !loading && message.trim() && relationship && outcome && (
+        <div className="floating-gen">
+          <button
+            className="generate-btn"
+            onClick={generateReplies}
+            disabled={loading}
+          >
+            {mode === "email" ? "📧  Draft my emails" : "✍️  Write my replies"}
+          </button>
+        </div>
+      )}
     </>
   );
 }
