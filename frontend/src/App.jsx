@@ -317,6 +317,90 @@ function AnalysisCard({ analysis }) {
   );
 }
 
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function HistoryCard({ item, onLoad }) {
+  const [expanded, setExpanded] = useState(false);
+  const rel = RELATIONSHIPS.find(r => r.id === item.relationship);
+
+  return (
+    <div style={{
+      background: "#fff",
+      border: "1.5px solid #ede5d8",
+      borderRadius: 12,
+      padding: "14px 16px",
+      cursor: "pointer",
+      transition: "all 0.2s",
+    }}>
+      <div onClick={() => setExpanded(!expanded)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "#2a1f17",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {item.message.slice(0, 60)}{item.message.length > 60 ? "..." : ""}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+            {rel && (
+              <span style={{
+                fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 500,
+                background: "#FAF7F2", border: "1px solid #e5ddd3", borderRadius: 6,
+                padding: "2px 8px", color: "#7a6a5a",
+              }}>
+                {rel.emoji} {rel.label}
+              </span>
+            )}
+            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#b0a090" }}>
+              {timeAgo(item.timestamp)}
+            </span>
+          </div>
+        </div>
+        <span style={{ fontSize: 12, color: "#b0a090", flexShrink: 0, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>
+          ▼
+        </span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          {TONES.map(tone => (
+            <div key={tone.id} style={{
+              background: tone.bg, border: `1px solid ${tone.border}`,
+              borderRadius: 10, padding: "10px 14px",
+            }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600, color: tone.color, marginBottom: 4 }}>
+                {tone.icon} {tone.label}
+              </div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "#2a2420", lineHeight: 1.6 }}>
+                {item.replies[tone.id] || ""}
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={(e) => { e.stopPropagation(); onLoad(item); }}
+            style={{
+              background: "transparent", border: "1.5px solid #e5ddd3", borderRadius: 8,
+              color: "#7a6a5a", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+              fontSize: 12, fontWeight: 500, padding: "6px 14px", alignSelf: "flex-start",
+              transition: "all 0.2s", marginTop: 4,
+            }}
+          >
+            ↻ Regenerate these replies
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ThinkingAnimation() {
   const phrases = [
     "Reading the room...",
@@ -366,9 +450,17 @@ export default function App() {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
   const [mounted, setMounted]       = useState(false);
+  const [history, setHistory]       = useState([]);
   const resultRef                   = useRef(null);
 
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("reply_history") || "[]");
+      setHistory(saved);
+    } catch { /* ignore corrupt data */ }
+  }, []);
 
   function loadExample(ex) {
     setMessage(ex.msg);
@@ -376,6 +468,15 @@ export default function App() {
     setOutcome(ex.out);
     setReplies(null);
     setError(null);
+  }
+
+  function loadHistory(item) {
+    setMessage(item.message);
+    setRel(item.relationship);
+    setOutcome(item.outcome);
+    setReplies(null);
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function currentStep() {
@@ -406,6 +507,19 @@ export default function App() {
       }
 
       setReplies(data);
+
+      const entry = {
+        id: Date.now(),
+        message,
+        relationship,
+        outcome,
+        replies: { diplomatic: data.diplomatic, warm: data.warm, direct: data.direct },
+        timestamp: Date.now(),
+      };
+      const updated = [entry, ...history.filter(h => h.message !== message)].slice(0, 5);
+      setHistory(updated);
+      localStorage.setItem("reply_history", JSON.stringify(updated));
+
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (err) {
       setError("Could not connect. Please check your internet and try again.");
@@ -673,6 +787,24 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {/* Recent history */}
+        {history.length > 0 && !replies && !loading && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, color: "#b0a090", fontStyle: "italic" }}>
+                Recent
+              </span>
+              <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {history.map(item => (
+                <HistoryCard key={item.id} item={item} onLoad={loadHistory} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
