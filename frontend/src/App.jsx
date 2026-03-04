@@ -391,7 +391,7 @@ function AnalysisCard({ analysis }) {
         <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
           What they actually want
         </div>
-        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#2a1f17", lineHeight: 1.5 }}>
+        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#2a1f17", lineHeight: 1.6 }}>
           {analysis.real_intent}
         </div>
       </div>
@@ -400,7 +400,7 @@ function AnalysisCard({ analysis }) {
         <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
           How to handle this
         </div>
-        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#4a3f35", fontStyle: "italic", lineHeight: 1.5 }}>
+        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#4a3f35", fontStyle: "italic", lineHeight: 1.6 }}>
           {analysis.how_to_handle}
         </div>
       </div>
@@ -959,6 +959,7 @@ export default function App() {
             padding-bottom:6px; scroll-snap-type:x mandatory;
             -webkit-overflow-scrolling:touch;
           }
+          .rel-scroll { scrollbar-width:none; }
           .rel-scroll::-webkit-scrollbar { display:none; }
           .rel-scroll .rel-btn {
             flex-shrink:0; scroll-snap-align:start;
@@ -1095,7 +1096,7 @@ export default function App() {
           <div style={{ fontSize: 44, marginBottom: 14, animation: "float 3s ease-in-out infinite" }}>💬</div>
           <h1 style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: "clamp(26px, 6vw, 36px)",
+            fontSize: "clamp(24px, 6vw, 38px)",
             fontWeight: 400, color: "#1a110a", lineHeight: 1.25, marginBottom: 14,
           }}>
             How do I reply <em style={{ fontWeight: 700, color: "#c4a882" }}>to this?</em>
@@ -1137,7 +1138,7 @@ export default function App() {
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 70 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: "50%",
-                    background: cs > step.n ? "#2D6A4F" : cs === step.n ? "#1a1a1a" : "#e5e0d8",
+                    background: cs > step.n ? "#2D6A4F" : cs === step.n ? "#1a110a" : "#e5e0d8",
                     color: cs >= step.n ? "#fff" : "#a0948a",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 13, fontWeight: 700, transition: "all 0.3s",
@@ -1146,7 +1147,7 @@ export default function App() {
                   </div>
                   <span style={{
                     fontSize: 13, fontFamily: "'DM Sans', system-ui, sans-serif",
-                    color: cs === step.n ? "#1a1a1a" : cs > step.n ? "#2D6A4F" : "#b0a090",
+                    color: cs === step.n ? "#1a110a" : cs > step.n ? "#2D6A4F" : "#b0a090",
                     fontWeight: cs === step.n ? 600 : 400, transition: "all 0.3s",
                     textAlign: "center", lineHeight: 1.2,
                   }}>
@@ -1182,6 +1183,7 @@ export default function App() {
 
             <textarea
               rows={4}
+              maxLength={2000}
               value={message}
               onChange={e => { setMessage(e.target.value); setDismissed(false); }}
               placeholder={mode === "email"
@@ -1473,7 +1475,6 @@ export default function App() {
 
         {/* Footer */}
         <div style={{ textAlign: "center", marginTop: 48, paddingBottom: 60, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#c4b8aa", lineHeight: 1.8 }}>
-          <p style={{ color: "#9a8f85", fontWeight: 500 }}>Used by 1,200+ people this week</p>
           <p>Your messages are never stored or shared.</p>
           <p>Built with care for every difficult conversation. 💛</p>
         </div>

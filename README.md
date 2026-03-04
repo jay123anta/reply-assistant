@@ -2,8 +2,6 @@
 
 **The AI-powered reply assistant that helps you respond to difficult messages with confidence.**
 
-Live at [replycraft.in](https://replycraft.in)
-
 ---
 
 ## What It Does
@@ -42,4 +40,4 @@ Your messages are never stored or logged on our servers. Everything is processed
 - Email mode with subject lines
 - Multi-language support
 
-[Join the waitlist](https://replycraft.in/pro) to get early access + 30 days free.
+Join the waitlist inside the app to get early access + 30 days free.
