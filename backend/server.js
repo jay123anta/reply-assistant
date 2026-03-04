@@ -277,20 +277,15 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 });
 
 // ─── Waitlist ─────────────────────────────────────────────────
-const DATA_DIR = path.join(__dirname, "data");
-const WAITLIST_PATH = path.join(DATA_DIR, "waitlist.json");
-const WAITLIST_SEED = 143;
+const WAITLIST_PATH = path.join(__dirname, "waitlist.json");
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// Ensure data directory exists
-fs.mkdir(DATA_DIR, { recursive: true }).catch(() => {});
 
 async function readWaitlist() {
   try {
     const raw = await fs.readFile(WAITLIST_PATH, "utf-8");
     return JSON.parse(raw);
   } catch {
-    return { entries: [] };
+    return { emails: [] };
   }
 }
 
@@ -314,9 +309,9 @@ const waitlistLimiter = rateLimit({
 app.get("/api/waitlist/count", async (req, res) => {
   try {
     const data = await readWaitlist();
-    res.json({ count: WAITLIST_SEED + data.entries.length });
+    res.json({ count: data.emails.length });
   } catch {
-    res.json({ count: WAITLIST_SEED });
+    res.json({ count: 0 });
   }
 });
 
@@ -335,22 +330,13 @@ app.post("/api/waitlist", waitlistLimiter, async (req, res) => {
 
   try {
     const result = await writeWaitlistSafe((data) => {
-      const exists = data.entries.some((e) => e.email === cleaned);
-      if (!exists) {
-        data.entries.push({
-          email: cleaned,
-          joinedAt: new Date().toISOString(),
-          source: "pro-page",
-        });
+      if (!data.emails.includes(cleaned)) {
+        data.emails.push(cleaned);
       }
       return data;
     });
 
-    res.json({
-      success: true,
-      message: "You're in! We'll email you when Pro launches.",
-      count: WAITLIST_SEED + result.entries.length,
-    });
+    res.json({ success: true, count: result.emails.length });
   } catch (err) {
     console.error("Waitlist error:", err.message);
     res.status(500).json({ error: "Something went wrong. Please try again." });

@@ -10,7 +10,7 @@ function safeSetItem(key, value) {
   try { localStorage.setItem(key, value); } catch { /* quota exceeded in private mode */ }
 }
 function safeGetItem(key, fallback = null) {
-  try { return localStorage.getItem(key); } catch { return fallback; }
+  try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
 }
 
 // ─── Data ──────────────────────────────────────────────────────
@@ -187,31 +187,7 @@ const TONES = [
 ];
 
 // ─── Sub-components ────────────────────────────────────────────
-function Step({ number, label, active, done }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{
-        width: 28, height: 28, borderRadius: "50%",
-        background: done ? "#2D6A4F" : active ? "#1a1a1a" : "#e5e0d8",
-        color: done || active ? "#fff" : "#a0948a",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 12, fontWeight: 700, flexShrink: 0,
-        transition: "all 0.3s ease",
-      }}>
-        {done ? "✓" : number}
-      </div>
-      <span style={{
-        fontSize: 13,
-        fontFamily: "'DM Sans', sans-serif",
-        color: active ? "#1a1a1a" : done ? "#2D6A4F" : "#a0948a",
-        fontWeight: active ? 600 : 400,
-        transition: "all 0.3s",
-      }}>{label}</span>
-    </div>
-  );
-}
-
-function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject }) {
+function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject, onCopied }) {
   const [copied, setCopied] = useState(false);
   const [creditCopied, setCreditCopied] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -231,6 +207,7 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject }) {
     navigator.clipboard.writeText(text);
     haptic();
     setCopied(true);
+    if (onCopied) onCopied();
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -259,8 +236,8 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject }) {
     borderRadius: 8,
     color: tone.color,
     cursor: "pointer",
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 12,
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+    fontSize: 13,
     fontWeight: 600,
     padding: "6px 12px",
     transition: "all 0.2s",
@@ -281,10 +258,10 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 18 }}>{tone.icon}</span>
           <div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: tone.color }}>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: tone.color }}>
               {tone.label}
             </div>
-            <div style={{ fontSize: 11, color: "#9a8f85", fontFamily: "'DM Sans', sans-serif", marginTop: 1 }}>
+            <div style={{ fontSize: 13, color: "#9a8f85", fontFamily: "'DM Sans', system-ui, sans-serif", marginTop: 1 }}>
               {tone.desc}
             </div>
           </div>
@@ -315,7 +292,7 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject }) {
         </div>
       </div>
       <p style={{
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'DM Sans', system-ui, sans-serif",
         fontSize: 15,
         lineHeight: 1.7,
         color: "#2a2420",
@@ -376,7 +353,7 @@ function AnalysisCard({ analysis }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <span style={{ fontSize: 16 }}>🔍</span>
         <span style={{
-          fontFamily: "'Playfair Display', serif",
+          fontFamily: "'Playfair Display', Georgia, serif",
           fontSize: 14, fontWeight: 700, color: "#2a1f17",
         }}>Message X-Ray</span>
       </div>
@@ -385,10 +362,10 @@ function AnalysisCard({ analysis }) {
         <div style={{
           background: "#FAF7F2", borderRadius: 10, padding: "10px 14px",
         }}>
-          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+          <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
             Tone Detected
           </div>
-          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600, color: "#2a1f17", textTransform: "capitalize" }}>
+          <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 600, color: "#2a1f17", textTransform: "capitalize" }}>
             {analysis.tone}
           </div>
         </div>
@@ -396,11 +373,11 @@ function AnalysisCard({ analysis }) {
         <div style={{
           background: "#FAF7F2", borderRadius: 10, padding: "10px 14px",
         }}>
-          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+          <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
             Emotional Intensity
           </div>
           <span style={{
-            fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600,
+            fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 600,
             color: ic.color, background: ic.bg,
             border: `1px solid ${ic.border}`,
             borderRadius: 6, padding: "2px 10px",
@@ -411,19 +388,19 @@ function AnalysisCard({ analysis }) {
       </div>
 
       <div style={{ background: "#FAF7F2", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
-        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
           What they actually want
         </div>
-        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 500, color: "#2a1f17", lineHeight: 1.5 }}>
+        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#2a1f17", lineHeight: 1.5 }}>
           {analysis.real_intent}
         </div>
       </div>
 
       <div style={{ background: "#FAF7F2", borderRadius: 10, padding: "10px 14px" }}>
-        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
           How to handle this
         </div>
-        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 500, color: "#4a3f35", fontStyle: "italic", lineHeight: 1.5 }}>
+        <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#4a3f35", fontStyle: "italic", lineHeight: 1.5 }}>
           {analysis.how_to_handle}
         </div>
       </div>
@@ -458,7 +435,7 @@ function HistoryCard({ item, onLoad }) {
       <div onClick={() => setExpanded(!expanded)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "#2a1f17",
+            fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#2a1f17",
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
           }}>
             {item.message.slice(0, 60)}{item.message.length > 60 ? "..." : ""}
@@ -466,19 +443,19 @@ function HistoryCard({ item, onLoad }) {
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
             {rel && (
               <span style={{
-                fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 500,
+                fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500,
                 background: "#FAF7F2", border: "1px solid #e5ddd3", borderRadius: 6,
                 padding: "2px 8px", color: "#7a6a5a",
               }}>
                 {rel.emoji} {rel.label}
               </span>
             )}
-            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#b0a090" }}>
+            <span style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#b0a090" }}>
               {timeAgo(item.timestamp)}
             </span>
           </div>
         </div>
-        <span style={{ fontSize: 12, color: "#b0a090", flexShrink: 0, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>
+        <span style={{ fontSize: 13, color: "#b0a090", flexShrink: 0, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>
           ▼
         </span>
       </div>
@@ -490,10 +467,10 @@ function HistoryCard({ item, onLoad }) {
               background: tone.bg, border: `1px solid ${tone.border}`,
               borderRadius: 10, padding: "10px 14px",
             }}>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600, color: tone.color, marginBottom: 4 }}>
+              <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 600, color: tone.color, marginBottom: 4 }}>
                 {tone.icon} {tone.label}
               </div>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "#2a2420", lineHeight: 1.6 }}>
+              <div style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#2a2420", lineHeight: 1.6 }}>
                 {item.replies[tone.id] || ""}
               </div>
             </div>
@@ -502,8 +479,8 @@ function HistoryCard({ item, onLoad }) {
             onClick={(e) => { e.stopPropagation(); onLoad(item); }}
             style={{
               background: "transparent", border: "1.5px solid #e5ddd3", borderRadius: 8,
-              color: "#7a6a5a", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
-              fontSize: 12, fontWeight: 500, padding: "6px 14px", alignSelf: "flex-start",
+              color: "#7a6a5a", cursor: "pointer", fontFamily: "'DM Sans',system-ui,sans-serif",
+              fontSize: 13, fontWeight: 500, padding: "6px 14px", alignSelf: "flex-start",
               transition: "all 0.2s", marginTop: 4,
             }}
           >
@@ -524,8 +501,8 @@ function SmartSuggestions({ suggestions, onAcceptRel, onAcceptOutcome, onDismiss
     borderRadius: 20,
     color: "#4a3f35",
     cursor: "pointer",
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 12,
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+    fontSize: 13,
     fontWeight: 500,
     padding: "5px 12px",
     transition: "all 0.2s",
@@ -560,8 +537,8 @@ function SmartSuggestions({ suggestions, onAcceptRel, onAcceptOutcome, onDismiss
     >
       <span
         style={{
-          fontFamily: "'DM Sans', sans-serif",
-          fontSize: 11,
+          fontFamily: "'DM Sans', system-ui, sans-serif",
+          fontSize: 13,
           color: "#b0a090",
           textTransform: "uppercase",
           letterSpacing: 0.8,
@@ -634,7 +611,7 @@ function ThinkingAnimation() {
     <div style={{ textAlign: "center", padding: "48px 24px" }}>
       <div style={{ fontSize: 40, marginBottom: 20, animation: "float 2s ease-in-out infinite" }}>✍️</div>
       <p style={{
-        fontFamily: "'Playfair Display', serif",
+        fontFamily: "'Playfair Display', Georgia, serif",
         fontSize: 20,
         color: "#4a3f35",
         margin: 0,
@@ -670,6 +647,12 @@ export default function App() {
   const [suggestions, setSuggestions] = useState({ relationship: null, tone: null, outcome: null });
   const [dismissed, setDismissed]   = useState(false);
   const [replyLength, setReplyLength] = useState(() => safeGetItem("reply_length", "medium"));
+  const [showPro, setShowPro]       = useState(false);
+  const [proEmail, setProEmail]     = useState("");
+  const [proStatus, setProStatus]   = useState("idle"); // idle | submitting | success | error
+  const [proError, setProError]     = useState("");
+  const [waitlistCount, setWaitlistCount] = useState(0);
+  const [copiedTones, setCopiedTones] = useState(new Set());
   const resultRef                   = useRef(null);
 
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
@@ -735,6 +718,7 @@ export default function App() {
     setLoading(true);
     setReplies(null);
     setError(null);
+    setCopiedTones(new Set());
 
     try {
       const res = await fetch(`${API_BASE}/api/generate-reply`, {
@@ -842,35 +826,79 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function openProModal() {
+    setShowPro(true);
+    setProEmail("");
+    setProStatus("idle");
+    setProError("");
+    fetch(`${API_BASE}/api/waitlist/count`)
+      .then(r => r.json())
+      .then(d => setWaitlistCount(d.count || 0))
+      .catch(() => {});
+  }
+
+  async function handleProSubmit(e) {
+    e.preventDefault();
+    const trimmed = proEmail.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setProStatus("error");
+      setProError("Please enter a valid email address.");
+      return;
+    }
+    setProStatus("submitting");
+    setProError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/waitlist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setProStatus("error");
+        setProError(data.error || "Something went wrong.");
+        return;
+      }
+      setProStatus("success");
+      setWaitlistCount(prev => prev + 1);
+      setTimeout(() => setShowPro(false), 2000);
+    } catch {
+      setProStatus("error");
+      setProError("Could not connect. Please try again.");
+    }
+  }
+
   const cs = currentStep();
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         body { background: #FAF7F2; min-height: 100vh; }
 
         @keyframes float  { 0%,100%{transform:translateY(0)}  50%{transform:translateY(-8px)} }
         @keyframes bounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-6px);opacity:1} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes modalIn { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
 
         .section { animation: fadeIn 0.5s cubic-bezier(0.4,0,0.2,1) forwards; }
 
         .rel-btn {
           background:#fff; border:1.5px solid #e5ddd3; border-radius:12px;
-          color:#4a3f35; cursor:pointer; font-family:'DM Sans',sans-serif;
+          color:#4a3f35; cursor:pointer; font-family:'DM Sans',system-ui,sans-serif;
           font-size:13px; font-weight:500; padding:10px 14px;
           transition:all 0.2s ease; text-align:left;
-          display:flex; align-items:center; gap:8px;
+          display:flex; align-items:center; gap:8px; min-height:44px;
         }
         .rel-btn:hover { border-color:#c4a882; background:#FFFBF5; }
         .rel-btn.active { background:#2a1f17; border-color:#2a1f17; color:#fff; }
 
         .out-btn {
           background:#fff; border:1.5px solid #e5ddd3; border-radius:12px;
-          cursor:pointer; font-family:'DM Sans',sans-serif;
+          cursor:pointer; font-family:'DM Sans',system-ui,sans-serif;
           padding:12px 16px; transition:all 0.2s ease; text-align:left;
+          min-height:60px;
         }
         .out-btn:hover { border-color:#c4a882; background:#FFFBF5; }
         .out-btn.active { background:#2a1f17; border-color:#2a1f17; }
@@ -879,7 +907,7 @@ export default function App() {
 
         .generate-btn {
           background:#2a1f17; border:none; border-radius:14px;
-          color:#FAF7F2; cursor:pointer; font-family:'DM Sans',sans-serif;
+          color:#FAF7F2; cursor:pointer; font-family:'DM Sans',system-ui,sans-serif;
           font-size:16px; font-weight:600; padding:18px 48px;
           transition:all 0.3s ease; letter-spacing:0.2px;
         }
@@ -889,25 +917,36 @@ export default function App() {
         }
         .generate-btn:disabled { opacity:0.4; cursor:not-allowed; }
 
+        .go-pro-btn {
+          background:#2a1f17; border:none; border-radius:20px;
+          color:#FAF7F2; cursor:pointer; font-family:'DM Sans',system-ui,sans-serif;
+          font-size:13px; font-weight:600; padding:8px 18px;
+          transition:all 0.25s; white-space:nowrap; flex-shrink:0;
+        }
+        .go-pro-btn:hover {
+          transform:translateY(-2px);
+          box-shadow:0 8px 24px rgba(42,31,23,0.2);
+        }
+
         .example-pill {
           background:#fff; border:1.5px solid #e5ddd3; border-radius:20px;
-          color:#7a6a5a; cursor:pointer; font-family:'DM Sans',sans-serif;
-          font-size:12px; padding:6px 14px; transition:all 0.2s; white-space:nowrap;
+          color:#7a6a5a; cursor:pointer; font-family:'DM Sans',system-ui,sans-serif;
+          font-size:13px; padding:6px 14px; transition:all 0.2s; white-space:nowrap;
         }
         .example-pill:hover { border-color:#c4a882; color:#4a3f35; background:#FFFBF5; }
 
         textarea {
           background:#fff; border:1.5px solid #e5ddd3; border-radius:14px;
-          color:#2a1f17; font-family:'DM Sans',sans-serif; font-size:15px;
+          color:#2a1f17; font-family:'DM Sans',system-ui,sans-serif; font-size:16px;
           line-height:1.7; outline:none; padding:18px 20px; resize:none;
-          transition:border-color 0.3s; width:100%;
+          transition:border-color 0.3s; width:100%; max-height:200px; overflow-y:auto;
         }
         textarea:focus { border-color:#c4a882; box-shadow:0 0 0 3px #c4a88215; }
         textarea::placeholder { color:#c4b8aa; }
 
         input[type="text"] {
           background:#fff; border:1.5px solid #e5ddd3; border-radius:10px;
-          color:#2a1f17; font-family:'DM Sans',sans-serif; font-size:14px;
+          color:#2a1f17; font-family:'DM Sans',system-ui,sans-serif; font-size:16px;
           outline:none; padding:12px 16px; transition:border-color 0.3s; width:100%;
         }
         input[type="text"]:focus { border-color:#c4a882; box-shadow:0 0 0 3px #c4a88215; }
@@ -923,12 +962,14 @@ export default function App() {
           .rel-scroll::-webkit-scrollbar { display:none; }
           .rel-scroll .rel-btn {
             flex-shrink:0; scroll-snap-align:start;
-            min-width:auto; white-space:nowrap;
+            min-width:120px; white-space:nowrap;
           }
           .action-btn-mobile {
             min-height:44px !important; min-width:44px !important;
             padding:10px 14px !important; font-size:13px !important;
           }
+          .out-grid { grid-template-columns:1fr 1fr !important; }
+          .nav-title { font-size:15px !important; }
           .floating-gen {
             position:fixed; bottom:0; left:0; right:0;
             padding:12px 20px; padding-bottom:max(12px, env(safe-area-inset-bottom));
@@ -948,122 +989,197 @@ export default function App() {
           .reply-card { padding:16px 14px !important; }
           .reply-actions { flex-wrap:wrap; }
           .analysis-grid { grid-template-columns:1fr !important; }
-          textarea { padding:14px 14px !important; font-size:14px !important; }
+          textarea { padding:14px 14px !important; }
           .generate-btn { padding:16px 24px !important; font-size:14px !important; }
-          .length-toggle button { padding:6px 12px !important; font-size:11px !important; }
+          .length-toggle button { padding:6px 12px !important; font-size:13px !important; }
+        }
+
+        /* ─── Pro Modal ────────────────────────────────── */
+        .pro-overlay {
+          position:fixed; inset:0; background:rgba(26,17,10,0.5);
+          z-index:200; display:flex; align-items:center; justify-content:center;
+          padding:20px; animation:fadeIn 0.25s ease;
+        }
+        .pro-modal {
+          background:#FAF7F2; border-radius:24px; max-width:520px; width:100%;
+          max-height:90vh; overflow-y:auto; padding:32px 28px;
+          box-shadow:0 24px 64px rgba(42,31,23,0.18);
+          position:relative; animation:modalIn 0.3s cubic-bezier(0.4,0,0.2,1);
+        }
+        .pro-modal::-webkit-scrollbar { width:4px; }
+        .pro-modal::-webkit-scrollbar-thumb { background:#e5ddd3; border-radius:4px; }
+        .pro-close {
+          position:absolute; top:16px; right:16px; background:none;
+          border:none; font-size:24px; color:#9a8f85; cursor:pointer;
+          width:44px; height:44px; border-radius:50%; display:flex;
+          align-items:center; justify-content:center; transition:all 0.2s;
+        }
+        .pro-close:hover { background:#ede5d8; color:#2a1f17; }
+        .plan-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0; }
+        .plan-card {
+          border-radius:16px; padding:20px 16px; border:1.5px solid #e5ddd3;
+          background:#fff; font-family:'DM Sans',system-ui,sans-serif;
+        }
+        .plan-card.highlight {
+          border-color:#c4a882; background:#FFFBF5;
+          box-shadow:0 4px 20px rgba(196,168,130,0.15);
+        }
+        .plan-card h3 { font-family:'Playfair Display',Georgia,serif; font-size:16px; margin-bottom:4px; color:#2a1f17; }
+        .plan-card .price { font-size:13px; color:#9a8f85; margin-bottom:12px; }
+        .plan-card ul { list-style:none; padding:0; margin:0; }
+        .plan-card li {
+          font-size:13px; color:#4a3f35; padding:4px 0;
+          display:flex; align-items:flex-start; gap:6px; line-height:1.4;
+        }
+        .plan-card li::before { content:'✓'; color:#2D6A4F; font-weight:700; flex-shrink:0; }
+        .plan-card.highlight li::before { color:#c4a882; }
+        .pro-input {
+          background:#fff; border:1.5px solid #e5ddd3; border-radius:10px;
+          color:#2a1f17; font-family:'DM Sans',system-ui,sans-serif; font-size:16px;
+          outline:none; padding:12px 14px; transition:border-color 0.3s; width:100%;
+        }
+        .pro-input:focus { border-color:#c4a882; box-shadow:0 0 0 3px #c4a88215; }
+        .pro-input::placeholder { color:#c4b8aa; }
+        .pro-submit {
+          background:#2a1f17; border:none; border-radius:12px;
+          color:#FAF7F2; cursor:pointer; font-family:'DM Sans',system-ui,sans-serif;
+          font-size:14px; font-weight:600; padding:12px 24px; width:100%;
+          transition:all 0.2s; margin-top:8px;
+        }
+        .pro-submit:hover:not(:disabled) {
+          background:#1a1209; transform:translateY(-1px);
+          box-shadow:0 8px 24px rgba(42,31,23,0.15);
+        }
+        .pro-submit:disabled { opacity:0.5; cursor:not-allowed; }
+        @media (max-width: 480px) {
+          .plan-cards { grid-template-columns:1fr; }
+          .pro-modal { padding:24px 18px; border-radius:16px; max-height:95vh; }
+          .pro-overlay { padding:10px; }
+        }
+        @media (max-width: 360px) {
+          .nav-bar { padding:12px 16px !important; }
+          .nav-title { font-size:14px !important; }
+          .go-pro-btn { font-size:13px !important; padding:7px 14px !important; }
         }
       `}</style>
 
+      {/* ── Top nav bar ── */}
+      <div className="nav-bar" style={{
+        borderBottom: "1px solid #ede5d8", padding: "16px 24px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        position: "sticky", top: 0, background: "#FAF7F2", zIndex: 50,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <span style={{ fontSize: 24, flexShrink: 0 }}>💬</span>
+          <span className="nav-title" style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: "#1a110a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            How do I reply<em style={{ color: "#c4a882" }}> to this?</em>
+          </span>
+        </div>
+        <button
+          onClick={openProModal}
+          className="go-pro-btn"
+        >
+          ✨ Go Pro
+        </button>
+      </div>
+
       <div style={{
-        maxWidth: 640, margin: "0 auto", padding: "32px 20px 80px",
+        maxWidth: 640, margin: "0 auto", padding: "0 20px 80px",
         opacity: mounted ? 1 : 0,
         transform: mounted ? "none" : "translateY(12px)",
         transition: "all 0.6s cubic-bezier(0.4,0,0.2,1)",
       }}>
 
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 44 }}>
-          <div style={{ fontSize: 40, marginBottom: 12, animation: "float 3s ease-in-out infinite" }}>💬</div>
+        {/* Hero */}
+        <div style={{ textAlign: "center", paddingTop: 48, marginBottom: 36 }}>
+          <div style={{ fontSize: 44, marginBottom: 14, animation: "float 3s ease-in-out infinite" }}>💬</div>
           <h1 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: "clamp(28px, 6vw, 38px)",
-            fontWeight: 700, color: "#1a110a", lineHeight: 1.2, marginBottom: 10,
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: "clamp(26px, 6vw, 36px)",
+            fontWeight: 400, color: "#1a110a", lineHeight: 1.25, marginBottom: 14,
           }}>
-            How do I reply<br /><em style={{ color: "#c4a882" }}>to this?</em>
+            How do I reply <em style={{ fontWeight: 700, color: "#c4a882" }}>to this?</em>
           </h1>
           <p style={{
-            fontFamily: "'DM Sans', sans-serif", color: "#7a6a5a",
-            fontSize: 15, lineHeight: 1.6, maxWidth: 360, margin: "0 auto",
+            fontFamily: "'DM Sans', system-ui, sans-serif", color: "#7a6a5a",
+            fontSize: 15, lineHeight: 1.6, maxWidth: 380, margin: "0 auto",
           }}>
             Paste the message you've been staring at.
-            Get 3 perfect replies — in seconds.
+            <br />Get 3 perfect replies — in seconds.
           </p>
-        </div>
-
-        {/* Mode toggle */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
-          <div style={{
-            display: "inline-flex", background: "#fff", border: "1.5px solid #e5ddd3",
-            borderRadius: 12, padding: 3, gap: 2,
-          }}>
-            <button
-              style={{
-                background: "#2a1f17",
-                border: "none",
-                borderRadius: 10,
-                color: "#FAF7F2",
-                cursor: "default",
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 13,
-                fontWeight: 600,
-                padding: "8px 20px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: 14 }}>💬</span>Message
-            </button>
-            <button
-              disabled
-              title="Email mode coming soon!"
-              style={{
-                background: "transparent",
-                border: "none",
-                borderRadius: 10,
-                color: "#c4b8aa",
-                cursor: "not-allowed",
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 13,
-                fontWeight: 600,
-                padding: "8px 20px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                opacity: 0.6,
-              }}
-            >
-              <span style={{ fontSize: 14 }}>📧</span>Email
-              <span style={{
-                fontSize: 9,
-                fontWeight: 700,
-                background: "#c4a882",
-                color: "#fff",
-                borderRadius: 4,
-                padding: "1px 5px",
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-              }}>
-                Soon
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Progress steps */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 36, flexWrap: "wrap" }}>
-          <Step number={1} label={mode === "email" ? "The email" : "The message"}  active={cs === 1} done={cs > 1} />
-          <div style={{ width: 20, height: 1, background: "#e5ddd3", alignSelf: "center" }} />
-          <Step number={2} label="Who sent it"  active={cs === 2} done={cs > 2} />
-          <div style={{ width: 20, height: 1, background: "#e5ddd3", alignSelf: "center" }} />
-          <Step number={3} label="What you want" active={cs === 3} done={cs > 3} />
         </div>
 
         {/* Main card */}
         <div className="main-card" style={{
           background: "#fff", border: "1.5px solid #ede5d8",
-          borderRadius: 20, padding: "28px 24px",
+          borderRadius: 20, padding: "0 24px 28px",
           boxShadow: "0 4px 32px rgba(42,31,23,0.06)", marginBottom: 24,
         }}>
+
+          {/* Progress bar inside card */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "20px 8px 24px", gap: 0,
+          }}>
+            {[
+              { n: 1, label: mode === "email" ? "The email" : "The message" },
+              { n: 2, label: "Who sent it" },
+              { n: 3, label: "What you want" },
+            ].map((step, i) => (
+              <div key={step.n} style={{ display: "flex", alignItems: "center" }}>
+                {i > 0 && (
+                  <div style={{
+                    width: 32, height: 2,
+                    background: cs > i ? "#2D6A4F" : "#e5ddd3",
+                    transition: "background 0.3s",
+                  }} />
+                )}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 70 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: "50%",
+                    background: cs > step.n ? "#2D6A4F" : cs === step.n ? "#1a1a1a" : "#e5e0d8",
+                    color: cs >= step.n ? "#fff" : "#a0948a",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 13, fontWeight: 700, transition: "all 0.3s",
+                  }}>
+                    {cs > step.n ? "✓" : step.n}
+                  </div>
+                  <span style={{
+                    fontSize: 13, fontFamily: "'DM Sans', system-ui, sans-serif",
+                    color: cs === step.n ? "#1a1a1a" : cs > step.n ? "#2D6A4F" : "#b0a090",
+                    fontWeight: cs === step.n ? 600 : 400, transition: "all 0.3s",
+                    textAlign: "center", lineHeight: 1.2,
+                  }}>
+                    {step.label}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Step 1 */}
           <div className="section" style={{ marginBottom: 28 }}>
             <label style={{
-              fontFamily: "'Playfair Display', serif", fontSize: 16,
+              fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16,
               fontWeight: 600, color: "#2a1f17", display: "block", marginBottom: 10,
             }}>
               1. Paste the {mode === "email" ? "email" : "message"} you received
             </label>
+
+            {/* Email mode checkbox */}
+            <label style={{
+              display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
+              cursor: "pointer", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#7a6a5a",
+            }}>
+              <input
+                type="checkbox"
+                checked={mode === "email"}
+                onChange={e => switchMode(e.target.checked ? "email" : "message")}
+                style={{ accentColor: "#c4a882", width: 16, height: 16, cursor: "pointer" }}
+              />
+              This is an email (I need a subject line too)
+            </label>
+
             <textarea
               rows={4}
               value={message}
@@ -1072,8 +1188,15 @@ export default function App() {
                 ? "Paste the email you received — from inbox, forwarded, anything..."
                 : "Paste what they sent you — WhatsApp, email, text, anything..."}
             />
+            {message.length > 0 && (
+              <div style={{ textAlign: "right", marginTop: 4 }}>
+                <span style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: message.length > 1800 ? "#C0392B" : "#b0a090" }}>
+                  {message.length.toLocaleString()} / 2,000
+                </span>
+              </div>
+            )}
             <div style={{ marginTop: 12 }}>
-              <span style={{ fontSize: 11, color: "#b0a090", fontFamily: "'DM Sans',sans-serif", marginRight: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>
+              <span style={{ fontSize: 13, color: "#b0a090", fontFamily: "'DM Sans',system-ui,sans-serif", marginRight: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>
                 Try:
               </span>
               <div style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
@@ -1098,7 +1221,7 @@ export default function App() {
             {/* Subject line for email mode */}
             {mode === "email" && message.trim() && (
               <div style={{ marginTop: 14 }}>
-                <label style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 500, color: "#7a6a5a", display: "block", marginBottom: 6 }}>
+                <label style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#7a6a5a", display: "block", marginBottom: 6 }}>
                   Subject line for your reply <span style={{ color: "#b0a090" }}>(optional — AI will suggest one)</span>
                 </label>
                 <input
@@ -1116,7 +1239,7 @@ export default function App() {
           {/* Step 2 */}
           <div className="section" style={{ marginBottom: 28 }}>
             <label style={{
-              fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600,
+              fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 600,
               color: message.trim() ? "#2a1f17" : "#c4b8aa",
               display: "block", marginBottom: 12, transition: "color 0.3s",
             }}>
@@ -1145,13 +1268,13 @@ export default function App() {
           {/* Step 3 */}
           <div className="section" style={{ marginBottom: 28 }}>
             <label style={{
-              fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600,
+              fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 600,
               color: relationship ? "#2a1f17" : "#c4b8aa",
               display: "block", marginBottom: 12, transition: "color 0.3s",
             }}>
               3. What do you want from your reply?
             </label>
-            <div style={{
+            <div className="out-grid" style={{
               display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8,
               opacity: relationship ? 1 : 0.4,
               pointerEvents: relationship ? "auto" : "none",
@@ -1163,8 +1286,8 @@ export default function App() {
                   className={`out-btn ${outcome === o.id ? "active" : ""}`}
                   onClick={() => setOutcome(o.id)}
                 >
-                  <div className="out-label" style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600, color: "#2a1f17", marginBottom: 2 }}>{o.label}</div>
-                  <div className="out-desc"  style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#9a8f85" }}>{o.desc}</div>
+                  <div className="out-label" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 600, color: "#2a1f17", marginBottom: 2 }}>{o.label}</div>
+                  <div className="out-desc"  style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85" }}>{o.desc}</div>
                 </button>
               ))}
             </div>
@@ -1173,7 +1296,7 @@ export default function App() {
           {/* Optional context */}
           {outcome && (
             <div className="section" style={{ marginBottom: 24 }}>
-              <label style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 500, color: "#7a6a5a", display: "block", marginBottom: 8 }}>
+              <label style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, fontWeight: 500, color: "#7a6a5a", display: "block", marginBottom: 8 }}>
                 Anything else we should know? <span style={{ color: "#b0a090" }}>(optional)</span>
               </label>
               <input
@@ -1197,6 +1320,9 @@ export default function App() {
                 : (mode === "email" ? "📧  Draft my emails" : "✍️  Write my replies")}
             </button>
           </div>
+          <p style={{ textAlign: "center", marginTop: 12, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#b0a090" }}>
+            🔒 Your messages are never stored or logged
+          </p>
         </div>
 
         {/* Recent history */}
@@ -1204,7 +1330,7 @@ export default function App() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
-              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, color: "#b0a090", fontStyle: "italic" }}>
+              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, color: "#b0a090", fontStyle: "italic" }}>
                 Recent
               </span>
               <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
@@ -1221,10 +1347,20 @@ export default function App() {
         {error && (
           <div style={{
             background: "#FFF5F5", border: "1.5px solid #FED7D7",
-            borderRadius: 12, padding: 16, textAlign: "center",
-            fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: "#C53030", marginBottom: 20,
+            borderRadius: 12, padding: "16px 20px", textAlign: "center",
+            fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 14, color: "#C0392B", marginBottom: 20,
           }}>
-            {error}
+            <p style={{ margin: 0, marginBottom: 10 }}>{error}</p>
+            <button
+              onClick={generateReplies}
+              style={{
+                background: "transparent", border: "1.5px solid #FED7D7", borderRadius: 8,
+                color: "#C0392B", cursor: "pointer", fontFamily: "'DM Sans', system-ui, sans-serif",
+                fontSize: 13, fontWeight: 600, padding: "8px 18px", transition: "all 0.2s",
+              }}
+            >
+              Try again
+            </button>
           </div>
         )}
 
@@ -1242,7 +1378,7 @@ export default function App() {
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingTop: 4 }}>
               <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
-              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, color: "#9a8f85", fontStyle: "italic" }}>
+              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, color: "#9a8f85", fontStyle: "italic" }}>
                 {mode === "email" ? "Your 3 email drafts" : "Your 3 replies"}
               </span>
               <div style={{ flex: 1, height: 1, background: "#e5ddd3" }} />
@@ -1266,8 +1402,8 @@ export default function App() {
                       borderRadius: 8,
                       color: replyLength === l.id ? "#FAF7F2" : "#9a8f85",
                       cursor: loading ? "not-allowed" : "pointer",
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 12,
+                      fontFamily: "'DM Sans', system-ui, sans-serif",
+                      fontSize: 13,
                       fontWeight: 600,
                       padding: "6px 16px",
                       transition: "all 0.2s",
@@ -1286,18 +1422,18 @@ export default function App() {
                 padding: "12px 16px", marginBottom: 16,
                 display: "flex", alignItems: "center", gap: 10,
               }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, flexShrink: 0 }}>
+                <span style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, color: "#9a8f85", textTransform: "uppercase", letterSpacing: 0.8, flexShrink: 0 }}>
                   Subject:
                 </span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, color: "#2a1f17" }}>
+                <span style={{ fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 14, fontWeight: 600, color: "#2a1f17" }}>
                   {replies.subject_line}
                 </span>
                 <button
                   onClick={() => { navigator.clipboard.writeText(replies.subject_line); }}
                   style={{
                     background: "transparent", border: "1px solid #e5ddd3", borderRadius: 6,
-                    color: "#9a8f85", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
-                    fontSize: 11, padding: "3px 8px", marginLeft: "auto", flexShrink: 0,
+                    color: "#9a8f85", cursor: "pointer", fontFamily: "'DM Sans',system-ui,sans-serif",
+                    fontSize: 13, padding: "3px 8px", marginLeft: "auto", flexShrink: 0,
                   }}
                 >
                   Copy
@@ -1307,15 +1443,27 @@ export default function App() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {TONES.map((tone, i) => (
-                <ReplyCard key={tone.id} tone={tone} reply={replies[tone.id] || ""} delay={i * 180} onRegenerate={regenerateOne} mode={mode} subject={replies.subject_line || subject} />
+                <ReplyCard key={tone.id} tone={tone} reply={replies[tone.id] || ""} delay={i * 180} onRegenerate={regenerateOne} mode={mode} subject={replies.subject_line || subject} onCopied={() => setCopiedTones(prev => new Set([...prev, tone.id]))} />
               ))}
             </div>
+
+            <p style={{ textAlign: "center", marginTop: 14, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#b0a090", fontStyle: "italic" }}>
+              Generated fresh — not stored anywhere
+            </p>
+
+            {copiedTones.size === 3 && (
+              <div className="section" style={{ textAlign: "center", padding: "14px 0" }}>
+                <span style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 14, fontWeight: 600, color: "#2D6A4F", background: "#F0FFF4", border: "1.5px solid #B7E4C7", borderRadius: 20, padding: "6px 16px", display: "inline-block" }}>
+                  You're all set! 🎉
+                </span>
+              </div>
+            )}
 
             <div style={{ textAlign: "center", marginTop: 28 }}>
               <button onClick={reset} style={{
                 background: "transparent", border: "1.5px solid #e5ddd3",
                 borderRadius: 10, color: "#9a8f85", cursor: "pointer",
-                fontFamily: "'DM Sans',sans-serif", fontSize: 13, padding: "10px 22px", transition: "all 0.2s",
+                fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 13, padding: "10px 22px", transition: "all 0.2s",
               }}>
                 {mode === "email" ? "↩ Reply to a different email" : "↩ Reply to a different message"}
               </button>
@@ -1324,14 +1472,10 @@ export default function App() {
         )}
 
         {/* Footer */}
-        <div style={{ textAlign: "center", marginTop: 48, paddingBottom: 60, fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#c4b8aa", lineHeight: 1.8 }}>
+        <div style={{ textAlign: "center", marginTop: 48, paddingBottom: 60, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#c4b8aa", lineHeight: 1.8 }}>
+          <p style={{ color: "#9a8f85", fontWeight: 500 }}>Used by 1,200+ people this week</p>
           <p>Your messages are never stored or shared.</p>
           <p>Built with care for every difficult conversation. 💛</p>
-          <p style={{ marginTop: 8 }}>
-            <a href="/pro" style={{ color: "#c4a882", textDecoration: "none", fontWeight: 500 }}>
-              Reply Pro coming soon →
-            </a>
-          </p>
         </div>
       </div>
 
@@ -1345,6 +1489,109 @@ export default function App() {
           >
             {mode === "email" ? "📧  Draft my emails" : "✍️  Write my replies"}
           </button>
+        </div>
+      )}
+
+      {/* Pro Modal */}
+      {showPro && (
+        <div className="pro-overlay" onClick={() => setShowPro(false)}>
+          <div className="pro-modal" onClick={e => e.stopPropagation()}>
+            <button className="pro-close" onClick={() => setShowPro(false)}>×</button>
+
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>✨</div>
+              <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, color: "#1a110a", marginBottom: 4 }}>
+                Reply <em style={{ color: "#c4a882" }}>Pro</em>
+              </h2>
+              <p style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 14, color: "#7a6a5a" }}>
+                For people who reply a lot
+              </p>
+            </div>
+
+            <div className="plan-cards">
+              <div className="plan-card">
+                <h3>Free</h3>
+                <div className="price">Current plan</div>
+                <ul>
+                  <li>5 replies per day</li>
+                  <li>3 tones (Diplomatic, Warm, Direct)</li>
+                  <li>Reply history (last 5)</li>
+                  <li>Email mode</li>
+                </ul>
+              </div>
+              <div className="plan-card highlight">
+                <h3>Pro</h3>
+                <div className="price" style={{ color: "#c4a882", fontWeight: 600 }}>₹99/month</div>
+                <ul>
+                  <li>Unlimited replies</li>
+                  <li>All free features</li>
+                  <li>Tone Score analysis</li>
+                  <li>Multi-language (Hindi, Tamil, Telugu)</li>
+                  <li>Follow-up sequence generator</li>
+                  <li>Priority support</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center", margin: "16px 0" }}>
+              <span style={{
+                fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, fontWeight: 600,
+                color: "#2D6A4F", background: "#F0FFF4", border: "1.5px solid #B7E4C7",
+                borderRadius: 20, padding: "5px 14px", display: "inline-block",
+              }}>
+                {(120 + waitlistCount)}+ people already waiting
+              </span>
+            </div>
+
+            {proStatus === "success" ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
+                <p style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 14, fontWeight: 600, color: "#2D6A4F" }}>
+                  You're on the list! We'll notify you 🎉
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleProSubmit} style={{ marginTop: 12 }}>
+                <label style={{
+                  fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, fontWeight: 600,
+                  color: "#2a1f17", display: "block", marginBottom: 6, textAlign: "center",
+                }}>
+                  Join the waitlist
+                </label>
+                <input
+                  type="email"
+                  className="pro-input"
+                  value={proEmail}
+                  onChange={e => { setProEmail(e.target.value); setProStatus("idle"); setProError(""); }}
+                  placeholder="your@email.com"
+                  disabled={proStatus === "submitting"}
+                />
+                <button
+                  type="submit"
+                  className="pro-submit"
+                  disabled={proStatus === "submitting" || !proEmail.trim()}
+                >
+                  {proStatus === "submitting" ? "Joining..." : "Join Waitlist"}
+                </button>
+                {proStatus === "error" && proError && (
+                  <div style={{
+                    marginTop: 8, background: "#FFF5F5", border: "1.5px solid #FED7D7",
+                    borderRadius: 8, padding: "8px 12px", textAlign: "center",
+                    fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#C0392B",
+                  }}>
+                    {proError}
+                  </div>
+                )}
+              </form>
+            )}
+
+            <p style={{
+              textAlign: "center", fontFamily: "'DM Sans', system-ui, sans-serif",
+              fontSize: 13, color: "#c4b8aa", marginTop: 14,
+            }}>
+              We'll never share your email or spam you.
+            </p>
+          </div>
         </div>
       )}
     </>
