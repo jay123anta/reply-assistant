@@ -288,14 +288,14 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject, onCopied }
 
   function copyWithCredit() {
     const body = mode === "email" && subject ? `Subject: ${subject}\n\n${reply}` : reply;
-    navigator.clipboard.writeText(`${body}\n\n— via replycraft.in`);
+    navigator.clipboard.writeText(`${body}\n\n— via replycraft-gold.vercel.app`);
     haptic();
     setCreditCopied(true);
     setTimeout(() => setCreditCopied(false), 2000);
   }
 
   function shareWhatsApp() {
-    const text = `Used this AI tool to reply to a tough message \u{1F447}\n\n${reply}\n\nTry it free: https://replycraft.in`;
+    const text = `Used this AI tool to reply to a tough message \u{1F447}\n\n${reply}\n\nTry it free: https://replycraft-gold.vercel.app`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
 
@@ -386,7 +386,7 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject, onCopied }
         </button>
         <button
           onClick={copyWithCredit}
-          title="Copy with replycraft.in credit"
+          title="Copy with replycraft-gold.vercel.app credit"
           className="action-btn-mobile"
           style={{
             ...btnBase,
