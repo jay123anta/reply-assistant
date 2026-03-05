@@ -5,6 +5,13 @@ import { useState, useEffect, useRef } from "react";
 // Production: https://your-backend.onrender.com
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
+// ─── Analytics ──────────────────────────────────────────────────
+function trackEvent(name, props = {}) {
+  if (window.plausible) {
+    window.plausible(name, { props });
+  }
+}
+
 // Safari private browsing throws on localStorage.setItem
 function safeSetItem(key, value) {
   try { localStorage.setItem(key, value); } catch { /* quota exceeded in private mode */ }
@@ -283,6 +290,7 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject, onCopied }
     haptic();
     setCopied(true);
     if (onCopied) onCopied();
+    trackEvent("reply_copied", { tone: tone.id });
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -291,12 +299,14 @@ function ReplyCard({ tone, reply, delay, onRegenerate, mode, subject, onCopied }
     navigator.clipboard.writeText(`${body}\n\n— via replycraft-gold.vercel.app`);
     haptic();
     setCreditCopied(true);
+    trackEvent("reply_copied", { tone: tone.id });
     setTimeout(() => setCreditCopied(false), 2000);
   }
 
   function shareWhatsApp() {
     const text = `Used this AI tool to reply to a tough message \u{1F447}\n\n${reply}\n\nTry it free: https://replycraft-gold.vercel.app`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    trackEvent("whatsapp_shared", { tone: tone.id });
   }
 
   async function handleRegenerate() {
@@ -731,6 +741,7 @@ export default function App() {
   const [exLang, setExLang]           = useState(() => safeGetItem("exampleLanguage", "hinglish"));
   const [exFade, setExFade]           = useState(1);
   const [dailyUsed, setDailyUsed]     = useState(0);
+  const [sleepBanner, setSleepBanner] = useState(false);
   const resultRef                   = useRef(null);
 
   const DAILY_LIMIT = 10;
@@ -756,6 +767,19 @@ export default function App() {
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
   useEffect(() => { setDailyUsed(getDailyUsage()); }, []);
 
+  // ── Server wake-up check ──
+  useEffect(() => {
+    let showTimer, hideTimer, responded = false;
+    showTimer = setTimeout(() => { if (!responded) setSleepBanner(true); }, 3000);
+    hideTimer = setTimeout(() => setSleepBanner(false), 40000);
+    fetch(`${API_BASE}/api/health`).then(() => {
+      responded = true;
+      clearTimeout(showTimer);
+      setSleepBanner(false);
+    }).catch(() => {});
+    return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
+  }, []);
+
   useEffect(() => {
     try {
       const saved = JSON.parse(safeGetItem("reply_history", "[]"));
@@ -775,6 +799,7 @@ export default function App() {
 
   function switchExLang(lang) {
     if (lang === exLang) return;
+    trackEvent("language_switched", { to: lang });
     setExFade(0);
     setTimeout(() => {
       setExLang(lang);
@@ -788,6 +813,7 @@ export default function App() {
 
   function switchMode(newMode) {
     if (newMode === mode) return;
+    if (newMode === "email") trackEvent("email_mode_on");
     setMode(newMode);
     setMessage("");
     setSubject("");
@@ -807,6 +833,7 @@ export default function App() {
     setReplies(null);
     setError(null);
     setDismissed(true); // examples already set rel/outcome
+    trackEvent("example_clicked", { label: ex.label, language: exLang });
   }
 
   function loadHistory(item) {
@@ -829,7 +856,7 @@ export default function App() {
     if (!message.trim() || !relationship || !outcome) return;
     const fresh = getDailyUsage();
     setDailyUsed(fresh);
-    if (fresh >= DAILY_LIMIT) return;
+    if (fresh >= DAILY_LIMIT) { trackEvent("daily_limit_hit"); return; }
     setLoading(true);
     setReplies(null);
     setError(null);
@@ -851,6 +878,7 @@ export default function App() {
 
       setReplies(data);
       incrementDailyUsage();
+      trackEvent("reply_generated", { relationship, outcome, length: replyLength });
 
       const entry = {
         id: Date.now(),
@@ -947,6 +975,7 @@ export default function App() {
     setProEmail("");
     setProStatus("idle");
     setProError("");
+    trackEvent("pro_modal_opened");
     fetch(`${API_BASE}/api/waitlist/count`)
       .then(r => r.json())
       .then(d => setWaitlistCount(d.count || 0))
@@ -977,6 +1006,7 @@ export default function App() {
       }
       setProStatus("success");
       setWaitlistCount(prev => prev + 1);
+      trackEvent("waitlist_joined");
       setTimeout(() => setShowPro(false), 2000);
     } catch {
       setProStatus("error");
@@ -993,6 +1023,8 @@ export default function App() {
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         body { background: #FAF7F2; min-height: 100vh; }
 
+        @keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
+        @keyframes slideUp   { from{transform:translateY(0)} to{transform:translateY(-100%)} }
         @keyframes float  { 0%,100%{transform:translateY(0)}  50%{transform:translateY(-8px)} }
         @keyframes bounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-6px);opacity:1} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
@@ -1177,11 +1209,25 @@ export default function App() {
         }
       `}</style>
 
+      {/* ── Sleep warning banner ── */}
+      {sleepBanner && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+          background: "#FFFBEB", borderBottom: "1px solid #FDE68A",
+          color: "#92400E", fontFamily: "'DM Sans', system-ui, sans-serif",
+          fontSize: 13, textAlign: "center", padding: "10px 16px",
+          animation: "slideDown 0.3s ease",
+        }}>
+          {"\u23F3"} Server is waking up — your first reply may take up to 30 seconds. Please wait...
+        </div>
+      )}
+
       {/* ── Top nav bar ── */}
       <div className="nav-bar" style={{
         borderBottom: "1px solid #ede5d8", padding: "16px 24px",
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        position: "sticky", top: 0, background: "#FAF7F2", zIndex: 50,
+        position: "sticky", top: sleepBanner ? 41 : 0, background: "#FAF7F2", zIndex: 50,
+        transition: "top 0.3s ease",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span style={{ fontSize: 24, flexShrink: 0 }}>💬</span>
