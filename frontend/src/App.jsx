@@ -597,7 +597,7 @@ function SmartSuggestions({ suggestions, onAcceptRel, onAcceptOutcome, onDismiss
 
   const toneInfo = suggestions.tone ? TONE_LABELS[suggestions.tone] : null;
   const rel = suggestions.relationship ? RELATIONSHIPS.find((r) => r.id === suggestions.relationship) : null;
-  const out = suggestions.outcome ? OUTCOMES.find((o) => o.id === suggestions.outcome) : null;
+  const out = suggestions.outcome ? OUTCOMES_MESSAGE.find((o) => o.id === suggestions.outcome) : null;
 
   return (
     <div
@@ -730,9 +730,31 @@ export default function App() {
   const [copiedTones, setCopiedTones] = useState(new Set());
   const [exLang, setExLang]           = useState(() => safeGetItem("exampleLanguage", "hinglish"));
   const [exFade, setExFade]           = useState(1);
+  const [dailyUsed, setDailyUsed]     = useState(0);
   const resultRef                   = useRef(null);
 
+  const DAILY_LIMIT = 10;
+
+  function getDailyUsage() {
+    try {
+      const raw = JSON.parse(safeGetItem("replyUsage", '{"count":0,"date":""}'));
+      const today = new Date().toISOString().split("T")[0];
+      if (raw.date === today) return raw.count;
+      safeSetItem("replyUsage", JSON.stringify({ count: 0, date: today }));
+      return 0;
+    } catch { return 0; }
+  }
+
+  function incrementDailyUsage() {
+    const today = new Date().toISOString().split("T")[0];
+    const current = getDailyUsage();
+    const next = current + 1;
+    safeSetItem("replyUsage", JSON.stringify({ count: next, date: today }));
+    setDailyUsed(next);
+  }
+
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
+  useEffect(() => { setDailyUsed(getDailyUsage()); }, []);
 
   useEffect(() => {
     try {
@@ -805,6 +827,9 @@ export default function App() {
 
   async function generateReplies() {
     if (!message.trim() || !relationship || !outcome) return;
+    const fresh = getDailyUsage();
+    setDailyUsed(fresh);
+    if (fresh >= DAILY_LIMIT) return;
     setLoading(true);
     setReplies(null);
     setError(null);
@@ -825,6 +850,7 @@ export default function App() {
       }
 
       setReplies(data);
+      incrementDailyUsage();
 
       const entry = {
         id: Date.now(),
@@ -834,7 +860,7 @@ export default function App() {
         replies: { diplomatic: data.diplomatic, warm: data.warm, direct: data.direct },
         timestamp: Date.now(),
       };
-      const updated = [entry, ...history.filter(h => h.message !== message)].slice(0, 5);
+      const updated = [entry, ...history.filter(h => h.message !== message)].slice(0, 10);
       setHistory(updated);
       safeSetItem("reply_history", JSON.stringify(updated));
 
@@ -1117,7 +1143,7 @@ export default function App() {
         .plan-card ul { list-style:none; padding:0; margin:0; }
         .plan-card li {
           font-size:13px; color:#4a3f35; padding:4px 0;
-          display:flex; align-items:flex-start; gap:6px; line-height:1.4;
+          display:flex; align-items:flex-start; gap:6px; line-height:1.6;
         }
         .plan-card li::before { content:'✓'; color:#2D6A4F; font-weight:700; flex-shrink:0; }
         .plan-card.highlight li::before { color:#c4a882; }
@@ -1279,7 +1305,7 @@ export default function App() {
             />
             {message.length > 0 && (
               <div style={{ textAlign: "right", marginTop: 4 }}>
-                <span style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: message.length > 1800 ? "#C0392B" : "#b0a090" }}>
+                <span style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: message.length > 1800 ? "#C0392B" : message.length > 1500 ? "#c4a882" : "#9a8f85" }}>
                   {message.length.toLocaleString()} / 2,000
                 </span>
               </div>
@@ -1412,6 +1438,7 @@ export default function App() {
               </label>
               <input
                 type="text"
+                maxLength={300}
                 value={context}
                 onChange={e => setContext(e.target.value)}
                 placeholder="e.g. This has happened 3 times before, we're usually on good terms..."
@@ -1424,14 +1451,31 @@ export default function App() {
             <button
               className="generate-btn"
               onClick={generateReplies}
-              disabled={!message.trim() || !relationship || !outcome || loading}
+              disabled={!message.trim() || !relationship || !outcome || loading || dailyUsed >= DAILY_LIMIT}
             >
               {loading
                 ? (mode === "email" ? "Drafting your emails..." : "Writing your replies...")
                 : (mode === "email" ? "📧  Draft my emails" : "✍️  Write my replies")}
             </button>
           </div>
-          <p style={{ textAlign: "center", marginTop: 12, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#b0a090" }}>
+          {dailyUsed >= DAILY_LIMIT ? (
+            <p style={{ textAlign: "center", marginTop: 8, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 12, color: "#C0392B", lineHeight: 1.6 }}>
+              You've used all 10 replies for today.<br />
+              Resets at midnight.<br />
+              Need more?{" "}
+              <span onClick={() => setShowPro(true)} style={{ color: "#c4a882", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>
+                ✨ Go Pro
+              </span>
+            </p>
+          ) : (
+            <p style={{
+              textAlign: "center", marginTop: 8, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 12,
+              color: dailyUsed >= 7 ? "#c4a882" : "#9a8f85",
+            }}>
+              {dailyUsed} of 10 free replies used today
+            </p>
+          )}
+          <p style={{ textAlign: "center", marginTop: 4, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, color: "#b0a090" }}>
             🔒 Your messages are never stored or logged
           </p>
         </div>
@@ -1590,12 +1634,12 @@ export default function App() {
       </div>
 
       {/* Floating mobile generate button */}
-      {!replies && !loading && !error && message.trim() && relationship && outcome && (
+      {!replies && !loading && !error && message.trim() && relationship && outcome && dailyUsed < DAILY_LIMIT && (
         <div className="floating-gen">
           <button
             className="generate-btn"
             onClick={generateReplies}
-            disabled={loading}
+            disabled={loading || dailyUsed >= DAILY_LIMIT}
           >
             {mode === "email" ? "📧  Draft my emails" : "✍️  Write my replies"}
           </button>
@@ -1623,22 +1667,25 @@ export default function App() {
                 <h3>Free</h3>
                 <div className="price">Current plan</div>
                 <ul>
-                  <li>5 replies per day</li>
-                  <li>3 tones (Diplomatic, Warm, Direct)</li>
-                  <li>Reply history (last 5)</li>
+                  <li>10 replies per day</li>
+                  <li>All 3 tones (Diplomatic, Warm, Direct)</li>
+                  <li>Reply history (last 10)</li>
                   <li>Email mode</li>
+                  <li>Tone Score analysis</li>
+                  <li>India-specific examples</li>
                 </ul>
               </div>
               <div className="plan-card highlight">
                 <h3>Pro</h3>
                 <div className="price" style={{ color: "#c4a882", fontWeight: 600 }}>₹99/month</div>
                 <ul>
-                  <li>Unlimited replies</li>
+                  <li>Unlimited replies per day</li>
                   <li>All free features</li>
-                  <li>Tone Score analysis</li>
-                  <li>Multi-language (Hindi, Tamil, Telugu)</li>
+                  <li>Shareable image card</li>
+                  <li>Multi-language replies (Hindi, Tamil, Telugu, Marathi)</li>
                   <li>Follow-up sequence generator</li>
                   <li>Priority support</li>
+                  <li>Early access to new features</li>
                 </ul>
               </div>
             </div>
