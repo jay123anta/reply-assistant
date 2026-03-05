@@ -19,17 +19,19 @@ app.use(
 );
 
 // ─── Rate Limiting ─────────────────────────────────────────────
-// Max 15 requests per IP per hour
+// Max 50 requests per IP per hour (covers generates + regenerates + health checks)
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 15,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     error: "Too many requests. Please try again in an hour.",
   },
 });
-app.use("/api/", limiter);
+app.use("/api/generate-reply", limiter);
+app.use("/api/regenerate-one", limiter);
+app.use("/api/waitlist", limiter);
 
 // ─── Health Check ──────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
