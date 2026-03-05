@@ -46,28 +46,103 @@ const OUTCOMES_EMAIL = [
 
 const EXAMPLES_MESSAGE = [
   {
-    label: "Passive-aggressive boss",
-    msg: "I thought you said you'd have this done by EOD yesterday? I guess I need to lower my expectations then.",
+    label: "\u{1F319} Late night deadline",
+    msg: "Aaj kaam khatam karke hi jaana. Client call hai kal subah 9 baje. I hope you understand the importance.",
     rel: "Boss",
-    out: "Assert myself",
-  },
-  {
-    label: "Overstepping relative",
-    msg: "When are you getting married? You're not getting any younger. Everyone is asking about you.",
-    rel: "Relative",
     out: "Hold my boundary",
   },
   {
-    label: "Demanding client",
-    msg: "I need this done by tonight. I know we agreed on Friday but something came up on my end.",
+    label: "\u{1F527} Small change request",
+    msg: "Hey can you just make one small change to the entire dashboard? Won't take more than 30 minutes I think. Need it by Monday morning.",
     rel: "Client",
     out: "Decline gracefully",
   },
   {
-    label: "Friend asking for money",
-    msg: "Can you lend me ₹20,000? I'll pay you back next month for sure. You know I'm good for it.",
-    rel: "Friend",
+    label: "\u{1F48D} Marriage pressure",
+    msg: "Beta abhi tak shaadi kyun nahi ki? Tumhari umar mein toh main do bachon ka baap tha. Log kya sochenge? Mummy papa ko bura lagta hai.",
+    rel: "Relative",
     out: "Hold my boundary",
+  },
+  {
+    label: "\u{1F4B0} Package question",
+    msg: "Bhai tera package kya hai? Mujhe bhi wahi company mein apply karna tha. Exactly kitna CTC mila?",
+    rel: "Friend",
+    out: "Decline gracefully",
+  },
+  {
+    label: "\u{1F624} Passive-aggressive senior",
+    msg: "I thought you were experienced enough to handle this independently. I guess I was wrong about that. Let's schedule a review meeting.",
+    rel: "Boss",
+    out: "Assert myself",
+  },
+  {
+    label: "\u{1F4F1} Forward this or else",
+    msg: "Beta ye forward karo 10 logon ko warna kuch bura hoga. Maine sab ko bheja. Tumne kyun nahi bheja abhi tak?",
+    rel: "Relative",
+    out: "Clarify a misunderstanding",
+  },
+  {
+    label: "\u{1F4CB} Scope creep",
+    msg: "We discussed this feature in our first call. It was always part of the scope. I don't understand why you are charging extra for something we already agreed on.",
+    rel: "Client",
+    out: "Assert myself",
+  },
+  {
+    label: "\u{1F64F} Yaar please help",
+    msg: "Yaar please mera ye kaam kar de. Tu toh expert hai isme. Bas 1-2 ghante ka kaam hai. Main tera favour return karunga pakka.",
+    rel: "Friend",
+    out: "Decline gracefully",
+  },
+];
+
+const EXAMPLES_MESSAGE_EN = [
+  {
+    label: "\u{1F319} Late night deadline",
+    msg: "Please stay back today and finish this. We have a client call tomorrow at 9am and I need everything ready. I trust you understand the priority.",
+    rel: "Boss",
+    out: "Hold my boundary",
+  },
+  {
+    label: "\u{1F527} Small change request",
+    msg: "Hey can you just make one small change to the entire dashboard? Won't take more than 30 minutes I think. Need it by Monday morning.",
+    rel: "Client",
+    out: "Decline gracefully",
+  },
+  {
+    label: "\u{1F48D} Marriage pressure",
+    msg: "When are you getting married? At your age I already had two kids. What will people think? Your parents are really worried about this.",
+    rel: "Relative",
+    out: "Hold my boundary",
+  },
+  {
+    label: "\u{1F4B0} Package question",
+    msg: "Hey what's your current package? I was thinking of applying to the same company. Can you tell me the exact CTC they offered you?",
+    rel: "Friend",
+    out: "Decline gracefully",
+  },
+  {
+    label: "\u{1F624} Passive-aggressive senior",
+    msg: "I thought you were experienced enough to handle this independently. I guess I was wrong about that. Let's schedule a review meeting.",
+    rel: "Boss",
+    out: "Assert myself",
+  },
+  {
+    label: "\u{1F4F1} Forward this message",
+    msg: "Please forward this to 10 people immediately or something bad will happen. I have sent it to everyone. Why haven't you forwarded it yet?",
+    rel: "Relative",
+    out: "Clarify a misunderstanding",
+  },
+  {
+    label: "\u{1F4CB} Scope creep",
+    msg: "We discussed this feature in our first call. It was always part of the scope. I don't understand why you are charging extra for something we already agreed on.",
+    rel: "Client",
+    out: "Assert myself",
+  },
+  {
+    label: "\u{1F64F} Friend asking a favour",
+    msg: "Please help me with this task. You are the expert here. It will only take an hour or two. I will return the favour, I promise.",
+    rel: "Friend",
+    out: "Decline gracefully",
   },
 ];
 
@@ -653,6 +728,8 @@ export default function App() {
   const [proError, setProError]     = useState("");
   const [waitlistCount, setWaitlistCount] = useState(0);
   const [copiedTones, setCopiedTones] = useState(new Set());
+  const [exLang, setExLang]           = useState(() => safeGetItem("exampleLanguage", "hinglish"));
+  const [exFade, setExFade]           = useState(1);
   const resultRef                   = useRef(null);
 
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
@@ -672,7 +749,20 @@ export default function App() {
   }, [message, dismissed]);
 
   const OUTCOMES = mode === "email" ? OUTCOMES_EMAIL : OUTCOMES_MESSAGE;
-  const EXAMPLES = mode === "email" ? EXAMPLES_EMAIL : EXAMPLES_MESSAGE;
+  const EXAMPLES = mode === "email" ? EXAMPLES_EMAIL : (exLang === "english" ? EXAMPLES_MESSAGE_EN : EXAMPLES_MESSAGE);
+
+  function switchExLang(lang) {
+    if (lang === exLang) return;
+    setExFade(0);
+    setTimeout(() => {
+      setExLang(lang);
+      localStorage.setItem("exampleLanguage", lang);
+      setMessage(""); setRel(null); setOutcome(null); setContext("");
+      setReplies(null); setError(null); setDismissed(false);
+      setSuggestions({ relationship: null, tone: null, outcome: null });
+      setExFade(1);
+    }, 200);
+  }
 
   function switchMode(newMode) {
     if (newMode === mode) return;
@@ -955,21 +1045,18 @@ export default function App() {
         /* ─── Mobile optimisations ───────────────────────── */
         @media (max-width: 600px) {
           .rel-scroll {
-            display:flex !important; overflow-x:auto; gap:8px;
-            padding-bottom:6px; scroll-snap-type:x mandatory;
-            -webkit-overflow-scrolling:touch;
+            display:grid !important; grid-template-columns:1fr 1fr !important;
+            gap:8px; overflow-x:visible;
           }
-          .rel-scroll { scrollbar-width:none; }
-          .rel-scroll::-webkit-scrollbar { display:none; }
           .rel-scroll .rel-btn {
-            flex-shrink:0; scroll-snap-align:start;
-            min-width:120px; white-space:nowrap;
+            min-width:0; white-space:nowrap;
           }
           .action-btn-mobile {
             min-height:44px !important; min-width:44px !important;
             padding:10px 14px !important; font-size:13px !important;
           }
           .out-grid { grid-template-columns:1fr 1fr !important; }
+          .inline-gen { display:none !important; }
           .nav-title { font-size:15px !important; }
           .floating-gen {
             position:fixed; bottom:0; left:0; right:0;
@@ -1198,10 +1285,32 @@ export default function App() {
               </div>
             )}
             <div style={{ marginTop: 12 }}>
-              <span style={{ fontSize: 13, color: "#b0a090", fontFamily: "'DM Sans',system-ui,sans-serif", marginRight: 8, textTransform: "uppercase", letterSpacing: 0.8 }}>
-                Try:
-              </span>
-              <div style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 11, color: "#9a8f85", fontFamily: "'DM Sans',system-ui,sans-serif", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                  Situations every Indian knows {"\u{1F447}"}
+                </span>
+                {mode !== "email" && (
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[{ id: "hinglish", label: "\u{1F1EE}\u{1F1F3} Hinglish" }, { id: "english", label: "English" }].map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => switchExLang(opt.id)}
+                        style={{
+                          fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: 12,
+                          padding: "5px 14px", borderRadius: 20, cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          background: exLang === opt.id ? "#2a1f17" : "transparent",
+                          color: exLang === opt.id ? "#fff" : "#9a8f85",
+                          border: exLang === opt.id ? "1.5px solid #2a1f17" : "1.5px solid #e5ddd3",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", opacity: exFade, transition: "opacity 0.2s ease" }}>
                 {EXAMPLES.map(ex => (
                   <button key={ex.label} className="example-pill" onClick={() => loadExample(ex)}>
                     {ex.label}
@@ -1311,7 +1420,7 @@ export default function App() {
           )}
 
           {/* Generate button */}
-          <div style={{ display: "flex", justifyContent: "center" }}>
+          <div className="inline-gen" style={{ display: "flex", justifyContent: "center" }}>
             <button
               className="generate-btn"
               onClick={generateReplies}
@@ -1481,7 +1590,7 @@ export default function App() {
       </div>
 
       {/* Floating mobile generate button */}
-      {!replies && !loading && message.trim() && relationship && outcome && (
+      {!replies && !loading && !error && message.trim() && relationship && outcome && (
         <div className="floating-gen">
           <button
             className="generate-btn"

@@ -28,7 +28,7 @@ That's it. One click to copy, and you're done.
 - **Regenerate** — Not happy with a reply? Regenerate individual tones with one click
 - **Reply History** — Your recent replies are saved locally so you can revisit them anytime
 - **Email Mode** — Switch to email format with subject lines for professional correspondence
-- **Example Messages** — Not sure what to try? Pick from built-in examples to see it in action
+- **Example Messages** — 8 relatable India-specific examples in Hinglish and English — switch between them with one tap
 
 ## Privacy
 
