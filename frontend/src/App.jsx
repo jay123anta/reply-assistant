@@ -756,12 +756,9 @@ export default function App() {
     } catch { return 0; }
   }
 
-  function incrementDailyUsage() {
+  function syncUsageToStorage(count) {
     const today = new Date().toISOString().split("T")[0];
-    const current = getDailyUsage();
-    const next = current + 1;
-    safeSetItem("replyUsage", JSON.stringify({ count: next, date: today }));
-    setDailyUsed(next);
+    safeSetItem("replyUsage", JSON.stringify({ count, date: today }));
   }
 
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
@@ -803,7 +800,7 @@ export default function App() {
     setExFade(0);
     setTimeout(() => {
       setExLang(lang);
-      localStorage.setItem("exampleLanguage", lang);
+      safeSetItem("exampleLanguage", lang);
       setMessage(""); setRel(null); setOutcome(null); setContext("");
       setReplies(null); setError(null); setDismissed(false);
       setSuggestions({ relationship: null, tone: null, outcome: null });
@@ -854,9 +851,7 @@ export default function App() {
 
   async function generateReplies() {
     if (!message.trim() || !relationship || !outcome) return;
-    const fresh = getDailyUsage();
-    setDailyUsed(fresh);
-    if (fresh >= DAILY_LIMIT) { trackEvent("daily_limit_hit"); return; }
+    if (dailyUsed >= DAILY_LIMIT) { trackEvent("daily_limit_hit"); return; }
     setLoading(true);
     setReplies(null);
     setError(null);
@@ -872,12 +867,19 @@ export default function App() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.limitReached) {
+          setDailyUsed(DAILY_LIMIT);
+          syncUsageToStorage(DAILY_LIMIT);
+          trackEvent("daily_limit_hit");
+        }
         setError(data.error || "Something went wrong. Please try again.");
         return;
       }
 
       setReplies(data);
-      incrementDailyUsage();
+      const used = DAILY_LIMIT - (data.remainingReplies ?? 0);
+      setDailyUsed(used);
+      syncUsageToStorage(used);
       trackEvent("reply_generated", { relationship, outcome, length: replyLength });
 
       const entry = {
@@ -945,11 +947,18 @@ export default function App() {
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.limitReached) {
+          setDailyUsed(DAILY_LIMIT);
+          syncUsageToStorage(DAILY_LIMIT);
+        }
         setError(data.error || "Something went wrong. Please try again.");
         return;
       }
 
       setReplies(data);
+      const used = DAILY_LIMIT - (data.remainingReplies ?? 0);
+      setDailyUsed(used);
+      syncUsageToStorage(used);
     } catch (err) {
       setError("Could not connect. Please check your internet and try again.");
     } finally {

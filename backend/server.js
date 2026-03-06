@@ -6,6 +6,7 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
+app.set("trust proxy", 1); // Render / Vercel sit behind a reverse proxy
 const PORT = process.env.PORT || 3001;
 
 // ─── Middleware ────────────────────────────────────────────────
@@ -33,6 +34,35 @@ app.use("/api/generate-reply", limiter);
 app.use("/api/regenerate-one", limiter);
 app.use("/api/waitlist", limiter);
 
+// ─── Daily Usage Tracking (per IP) ────────────────────────────
+const DAILY_REPLY_LIMIT = 10;
+const usageMap = new Map();
+
+function getDailyUsage(ip) {
+  const today = new Date().toISOString().split("T")[0];
+  const entry = usageMap.get(ip);
+  if (!entry || entry.date !== today) {
+    usageMap.set(ip, { count: 0, date: today });
+    return 0;
+  }
+  return entry.count;
+}
+
+function incrementUsage(ip) {
+  const today = new Date().toISOString().split("T")[0];
+  const current = getDailyUsage(ip);
+  usageMap.set(ip, { count: current + 1, date: today });
+  return DAILY_REPLY_LIMIT - (current + 1);
+}
+
+// Clean up stale entries every hour (usage resets on server restart)
+setInterval(() => {
+  const today = new Date().toISOString().split("T")[0];
+  for (const [ip, entry] of usageMap) {
+    if (entry.date !== today) usageMap.delete(ip);
+  }
+}, 60 * 60 * 1000);
+
 // ─── Health Check ──────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
@@ -40,6 +70,17 @@ app.get("/api/health", (req, res) => {
 
 // ─── Main Reply Endpoint ───────────────────────────────────────
 app.post("/api/generate-reply", async (req, res) => {
+  // Daily limit check (per IP)
+  const clientIp = req.ip;
+  const used = getDailyUsage(clientIp);
+  if (used >= DAILY_REPLY_LIMIT) {
+    return res.status(429).json({
+      error: "Daily limit reached. Resets at midnight.",
+      limitReached: true,
+      remainingReplies: 0,
+    });
+  }
+
   const { message, relationship, outcome, context, length, mode, subject } = req.body;
 
   // Input validation
@@ -124,6 +165,9 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 }`;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     const response = await fetch(
       "https://api.deepseek.com/v1/chat/completions",
       {
@@ -145,8 +189,10 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
             { role: "user", content: prompt },
           ],
         }),
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
 
     if (!response.ok) {
       console.error("DeepSeek error: HTTP", response.status);
@@ -164,8 +210,13 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
     }
 
     // For email mode, pass through subject_line if present
-    return res.json(parsed);
+    const remaining = incrementUsage(clientIp);
+    return res.json({ ...parsed, remainingReplies: remaining });
   } catch (err) {
+    if (err.name === "AbortError") {
+      console.error("Generate error: DeepSeek request timed out (30s)");
+      return res.status(504).json({ error: "AI took too long. Please try again." });
+    }
     console.error("Generate error:", err.message);
     return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
@@ -233,6 +284,9 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 { "reply": "<your reply here>" }`;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     const response = await fetch(
       "https://api.deepseek.com/v1/chat/completions",
       {
@@ -254,8 +308,10 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
             { role: "user", content: prompt },
           ],
         }),
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
 
     if (!response.ok) {
       console.error("DeepSeek error: HTTP", response.status);
@@ -273,6 +329,10 @@ Respond ONLY with valid JSON. No markdown, no explanation outside JSON.
 
     return res.json({ tone, reply: parsed.reply });
   } catch (err) {
+    if (err.name === "AbortError") {
+      console.error("Regenerate error: DeepSeek request timed out (30s)");
+      return res.status(504).json({ error: "AI took too long. Please try again." });
+    }
     console.error("Regenerate error:", err.message);
     return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
