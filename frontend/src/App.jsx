@@ -1244,12 +1244,6 @@ export default function App() {
             How do I reply<em style={{ color: "#c4a882" }}> to this?</em>
           </span>
         </div>
-        <button
-          onClick={openProModal}
-          className="go-pro-btn"
-        >
-          ✨ Go Pro
-        </button>
       </div>
 
       <div style={{
@@ -1260,22 +1254,69 @@ export default function App() {
       }}>
 
         {/* Hero */}
-        <div style={{ textAlign: "center", paddingTop: 48, marginBottom: 36 }}>
+        <div style={{ textAlign: "center", paddingTop: 44, marginBottom: 28 }}>
           <div style={{ fontSize: 44, marginBottom: 14, animation: "float 3s ease-in-out infinite" }}>💬</div>
           <h1 style={{
             fontFamily: "'Playfair Display', Georgia, serif",
             fontSize: "clamp(24px, 6vw, 38px)",
-            fontWeight: 400, color: "#1a110a", lineHeight: 1.25, marginBottom: 14,
+            fontWeight: 400, color: "#1a110a", lineHeight: 1.25, marginBottom: 12,
           }}>
             How do I reply <em style={{ fontWeight: 700, color: "#c4a882" }}>to this?</em>
           </h1>
           <p style={{
             fontFamily: "'DM Sans', system-ui, sans-serif", color: "#7a6a5a",
-            fontSize: 15, lineHeight: 1.6, maxWidth: 380, margin: "0 auto",
+            fontSize: 15, lineHeight: 1.7, maxWidth: 400, margin: "0 auto 20px",
           }}>
-            Paste the message you've been staring at.
-            <br />Get 3 perfect replies — in seconds.
+            Got a message from your boss, relative, or client that's hard to respond to?
+            <br />Paste it — get <strong style={{ color: "#4a3f35" }}>3 ready-to-send AI replies</strong> in seconds.
           </p>
+
+          {/* Use-case chips */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 8 }}>
+            {[
+              { emoji: "💼", label: "Boss pressure" },
+              { emoji: "📊", label: "Client demands" },
+              { emoji: "👨‍👩‍👧", label: "Family guilt-trips" },
+              { emoji: "👋", label: "Friend favours" },
+              { emoji: "🏠", label: "Landlord issues" },
+            ].map(chip => (
+              <span key={chip.label} style={{
+                fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13,
+                background: "#fff", border: "1.5px solid #e5ddd3", borderRadius: 20,
+                padding: "5px 12px", color: "#7a6a5a", display: "inline-flex", alignItems: "center", gap: 5,
+              }}>
+                {chip.emoji} {chip.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* How it works */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 28, justifyContent: "center" }}>
+          {[
+            { icon: "📋", step: "Paste the message", desc: "WhatsApp, email, text — anything you've been staring at" },
+            { icon: "🎯", step: "Add context", desc: "Who sent it and what outcome you want from your reply" },
+            { icon: "✍️", step: "Get 3 AI replies", desc: "Diplomatic, Warm, or Direct — choose, copy & send" },
+          ].map((item, i) => (
+            <div key={i} style={{ display: "contents" }}>
+              <div style={{
+                flex: 1, minWidth: 0, textAlign: "center",
+                background: "#fff", border: "1.5px solid #ede5d8", borderRadius: 14,
+                padding: "14px 10px",
+              }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>{item.icon}</div>
+                <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 13, fontWeight: 600, color: "#2a1f17", marginBottom: 4, lineHeight: 1.3 }}>
+                  {item.step}
+                </div>
+                <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 12, color: "#9a8f85", lineHeight: 1.5 }}>
+                  {item.desc}
+                </div>
+              </div>
+              {i < 2 && (
+                <div style={{ alignSelf: "center", color: "#c4b8aa", fontSize: 18, flexShrink: 0, padding: "0 2px", marginTop: -8 }}>→</div>
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Main card */}
@@ -1355,8 +1396,8 @@ export default function App() {
               value={message}
               onChange={e => { setMessage(e.target.value); setDismissed(false); }}
               placeholder={mode === "email"
-                ? "Paste the email you received — from inbox, forwarded, anything..."
-                : "Paste what they sent you — WhatsApp, email, text, anything..."}
+                ? "Paste the email here — the one that's been sitting in your inbox unanswered..."
+                : "Paste the message here — the one from your boss, relative, client, or friend that you don't know how to reply to..."}
             />
             {message.length > 0 && (
               <div style={{ textAlign: "right", marginTop: 4 }}>
@@ -1368,7 +1409,7 @@ export default function App() {
             <div style={{ marginTop: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 11, color: "#9a8f85", fontFamily: "'DM Sans',system-ui,sans-serif", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  Situations every Indian knows {"\u{1F447}"}
+                  Try an example {"\u{1F447}"}
                 </span>
                 {mode !== "email" && (
                   <div style={{ display: "flex", gap: 4 }}>
@@ -1515,12 +1556,8 @@ export default function App() {
           </div>
           {dailyUsed >= DAILY_LIMIT ? (
             <p style={{ textAlign: "center", marginTop: 8, fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: 12, color: "#C0392B", lineHeight: 1.6 }}>
-              You've used all 10 replies for today.<br />
-              Resets at midnight.<br />
-              Need more?{" "}
-              <span onClick={() => setShowPro(true)} style={{ color: "#c4a882", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>
-                ✨ Go Pro
-              </span>
+              You've used all 10 free replies for today.<br />
+              Come back tomorrow — resets at midnight. 🌙
             </p>
           ) : (
             <p style={{
